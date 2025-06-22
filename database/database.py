@@ -361,7 +361,7 @@ class SpotifyBotDatabase:
                 logger.error(f"Error fetching user reactions: {e}")
                 raise
 
-    def fetch_reaction(self, song_id: str, user: str):
+    def fetch_reaction(self, song_id: str, user: str) -> Optional[int]:
         """
         Fetch a specific reaction for a song by a user.
 

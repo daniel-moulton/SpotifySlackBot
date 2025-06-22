@@ -265,17 +265,30 @@ def register_handlers(app: App, db: "SpotifyBotDatabase"):
             logger.warning(f"Invalid reaction emoji: {reaction}")
             return
 
-        # Remove the reaction from the database
+        # Fetch the existing reaction from the database
+        existing_reaction = db.fetch_reaction(
+            song_id=track_id,
+            user=user
+        )
+        if not existing_reaction:
+            logger.warning(f"No reaction found for user <@{user}> on song ID {track_id}.")
+            app.client.chat_postEphemeral(
+                channel=channel,
+                text="You have not reacted to this song yet.",
+                user=user
+            )
+            return
+
+        # Check if the reaction matches the one being removed
+        if existing_reaction != numeric_value:
+            logger.warning(
+                f"Reaction mismatch for user <@{user}> on song ID {track_id}. Expected {existing_reaction}, got {numeric_value}.")
+            return
+
+        # If the reaction matches, proceed to remove it
         db.remove_reaction(
             song_id=track_id,
             user=user,
-        )
-
-        song_title = existing_song.get('title', 'Unknown Song')
-        app.client.chat_postEphemeral(
-            channel=channel,
-            text=f"Your reaction (:{reaction}:) has been removed from {song_title}.",
-            user=user
         )
 
     @app.command("/ping")
