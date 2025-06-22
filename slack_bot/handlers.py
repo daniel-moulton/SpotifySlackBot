@@ -298,7 +298,7 @@ def register_handlers(app: App, db: "SpotifyBotDatabase"):
         respond("Pong!")
 
     @app.command("/leaderboard")
-    def handle_leaderboard_command(ack, respond, command):
+    def handle_leaderboard_command(ack, respond, command, say):
         """
         Handle the /leaderboard command to display the top-rated songs.
         """
@@ -317,7 +317,7 @@ def register_handlers(app: App, db: "SpotifyBotDatabase"):
 
             leaderboard_text = format_leaderboard_table(top_songs)
 
-            respond(leaderboard_text)
+            say(leaderboard_text)
         except Exception as e:
             logger.error(f"Error fetching leaderboard: {e}")
             respond("An error occurred while fetching the leaderboard. Please try again later.")
