@@ -123,3 +123,50 @@ def format_unrated_songs_table(songs_data: list, user_name: str) -> str:
 
     message += "```"
     return message
+
+
+def parse_command_arguments(command_text: str) -> dict:
+    """
+    Parse command arguments from a command text.
+
+    Args:
+        command_text (str): The text of the command (doesn't include the slash command).
+
+    Returns:
+        dict: A dictionary containing the parsed arguments and their values.
+    """
+    args = {
+        "public": False  # Default to private if not specified
+    }
+    parts = command_text.split()
+
+    for i, part in enumerate(parts):
+        # Check for flags (--flag)
+        if part.startswith("--"):
+            key = part[2:]
+            # Check if next part is a value or the next flag
+            if i + 1 < len(parts) and not parts[i + 1].startswith("--"):
+                args[key] = parts[i + 1]
+            else:
+                args[key] = True
+
+    return args
+
+
+def send_response(respond, say, message: str, is_public: bool = False) -> None:
+    """
+    Send a response message to the channel, either as a public message or an ephemeral message.
+
+    Args:
+        respond (function): The respond function from the Slack app context.
+        say (function): The say function from the Slack app context.
+        message (str): The message to send.
+        is_public (bool): If True, sends a public message; if False, sends an ephemeral message.
+
+    Returns:
+        None
+    """
+    if is_public:
+        say(message)
+    else:
+        respond(message)

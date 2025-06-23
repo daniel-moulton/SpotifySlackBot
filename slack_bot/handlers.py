@@ -1,7 +1,7 @@
 import re
 import logging
 from slack_bolt import App
-from slack_bot.utils import extract_spotify_track_id, convert_emoji_to_number, format_leaderboard_table, format_unrated_songs_table, get_name_from_id
+from slack_bot.utils import extract_spotify_track_id, convert_emoji_to_number, format_leaderboard_table, format_unrated_songs_table, get_name_from_id, parse_command_arguments, send_response
 from spotify.api import fetch_track_details
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 def register_handlers(app: App, db: "SpotifyBotDatabase"):
     @app.message(re.compile(r"https://open\.spotify\.com/track/"))
-    def handle_spotify_track_message(message, say):
+    def handle_spotify_track_message(message) -> None:
         track_id = extract_spotify_track_id(message['text'])
         if not track_id:
             logger.warning("No valid Spotify track ID found in the message.")
@@ -83,8 +83,13 @@ def register_handlers(app: App, db: "SpotifyBotDatabase"):
             user=message['user']
         )
 
+    @app.event("message")
+    def handle_message() -> None:
+        """Ignore any messages that don't contain a Spotify track link, reduce log spam"""
+        pass
+
     @app.event("reaction_added")
-    def handle_reaction_added(event, say):
+    def handle_reaction_added(event, say) -> None:
         """
         Handle emoji reactions to song messages.
         """
@@ -191,7 +196,7 @@ def register_handlers(app: App, db: "SpotifyBotDatabase"):
         )
 
     @app.event("reaction_removed")
-    def handle_reaction_removed(event, say):
+    def handle_reaction_removed(event, say) -> None:
         """
         Handle removal of emoji reactions to song messages.
         """
@@ -292,32 +297,39 @@ def register_handlers(app: App, db: "SpotifyBotDatabase"):
         )
 
     @app.command("/ping")
-    def handle_ping_command(ack, respond):
+    def handle_ping_command(ack, respond) -> None:
+        """
+        Handle the /ping command to respond with a Pong message.
+
+        Quick health check command to ensure the bot is responsive.
+        """
         logger.info("Ping command received")
         ack()
         respond("Pong!")
 
     @app.command("/leaderboard")
-    def handle_leaderboard_command(ack, respond, command, say):
+    def handle_leaderboard_command(ack, respond, command, say) -> None:
         """
         Handle the /leaderboard command to display the top-rated songs.
         """
         logger.info("Leaderboard command received")
         ack()
 
-        args = command.get('text', '').strip().split()
+        command_text = command.get('text', '').strip()
+        args = parse_command_arguments(command_text)
 
-        limit = args[0] if args and args[0].isdigit() else 10
+        is_public = args.get('public', False)
+        count = args.get('count', '10')
 
         try:
-            top_songs = db.get_top_songs(limit=int(limit))
+            top_songs = db.get_top_songs(limit=int(count))
             if not top_songs:
                 respond("No songs found in the database.")
                 return
 
             leaderboard_text = format_leaderboard_table(top_songs)
 
-            say(leaderboard_text)
+            send_response(respond, say, leaderboard_text, is_public)
         except Exception as e:
             logger.error(f"Error fetching leaderboard: {e}")
             respond("An error occurred while fetching the leaderboard. Please try again later.")
@@ -330,8 +342,12 @@ def register_handlers(app: App, db: "SpotifyBotDatabase"):
         logger.info("Unrated command received")
         ack()
 
-        # Get user specified in command text
-        user = command.get('text', '').strip()
+        command_text = command.get('text', '').strip()
+        args = parse_command_arguments(command_text)
+
+        is_public = args.get('public', False)
+        user = args.get('user', None)
+
         if user:
             # Need just the UID part of the mention
             user_id = re.search(r"<@([A-Z0-9]+)\|", user)
@@ -351,7 +367,7 @@ def register_handlers(app: App, db: "SpotifyBotDatabase"):
             logger.info(f"Unrated songs for user {user_name}: {unrated_songs}")
             unrated_text = format_unrated_songs_table(unrated_songs, user_name)
 
-            say(unrated_text)
+            send_response(respond, say, unrated_text, is_public)
         except Exception as e:
             logger.error(f"Error fetching unrated songs: {e}")
             respond("An error occurred while fetching your unrated songs. Please try again later.")
