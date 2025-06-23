@@ -78,7 +78,7 @@ def register_handlers(app: App, db: "SpotifyBotDatabase"):
             text="Track details saved successfully! 🎶\n"
                  f"*Title:* {track_details['name']}\n"
                  f"*Album:* {track_details['album']}\n"
-                 f"*Artists:* {', '.join(track_details['artists'])}\n"
+                 f"*Artists:* {', '.join(artist['name'] for artist in track_details['artists'])}\n"
                  f"*Release Date:* {track_details['release_date']}\n",
             user=message['user']
         )
@@ -311,6 +311,10 @@ def register_handlers(app: App, db: "SpotifyBotDatabase"):
     def handle_leaderboard_command(ack, respond, command, say) -> None:
         """
         Handle the /leaderboard command to display the top-rated songs.
+
+        Possible arguments:
+        - `--public`: If set, the response will be visible to all users in the channel.
+        - `--count <number>`: Specify the number of top songs to display (default is 10).
         """
         logger.info("Leaderboard command received")
         ack()
@@ -335,9 +339,14 @@ def register_handlers(app: App, db: "SpotifyBotDatabase"):
             respond("An error occurred while fetching the leaderboard. Please try again later.")
 
     @app.command("/unrated")
-    def handle_unrated_command(ack, respond, command, say):
+    def handle_unrated_command(ack, respond, command, say) -> None:
         """
-        Handle the /unrated command to display songs that have not been rated by a user.
+        Handle the /unrated command to display songs that have not been rated by a user, excludes songs that user sent.
+
+        Possible arguments:
+        - `--public`: If set, the response will be visible to all users in the channel.
+        - `--user <@U12345678>`: Specify a user to check for unrated songs.
+            If not specified, defaults to the user who invoked the command.
         """
         logger.info("Unrated command received")
         ack()
@@ -361,7 +370,7 @@ def register_handlers(app: App, db: "SpotifyBotDatabase"):
         try:
             unrated_songs = db.get_unrated_songs(user_id=user)
             if not unrated_songs:
-                say(f"No unrated songs found for {user_name}.")
+                send_response(respond, say, f"No unrated songs found for {user_name}.", is_public)
                 return
 
             logger.info(f"Unrated songs for user {user_name}: {unrated_songs}")
@@ -371,6 +380,18 @@ def register_handlers(app: App, db: "SpotifyBotDatabase"):
         except Exception as e:
             logger.error(f"Error fetching unrated songs: {e}")
             respond("An error occurred while fetching your unrated songs. Please try again later.")
+
+    @app.command("/stats")
+    def handle_stats_command(ack, respond, command, say) -> None:
+        """
+        Handle the /stats command to display statistics about a song/user/artist.
+
+        Possible arguments:
+        - `--public`: If set, the response will be visible to all users in the channel.
+        - `--user <@U12345678>`: Specify a user to check for statistics.
+        - `--song <spotify_track_id | song_name>`: Specify a song to check for statistics.
+
+        """
 
     @app.error
     def custom_error_handler(error, body, logger):

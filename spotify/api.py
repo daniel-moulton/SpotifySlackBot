@@ -22,7 +22,7 @@ def fetch_track_details(track_id: str):
         track_info = {
             "id": track["id"],
             "name": track["name"],
-            "artists": [artist["name"] for artist in track["artists"]],
+            "artists": [{"id": artist["id"], "name": artist["name"]} for artist in track["artists"]],
             "album": track["album"]["name"],
             "release_date": track["album"]["release_date"],
         }

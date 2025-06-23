@@ -51,7 +51,7 @@ class SpotifyBotDatabase:
                 # Create artists table
                 cursor.execute("""
                     CREATE TABLE IF NOT EXISTS artists (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        id TEXT PRIMARY KEY,
                         name TEXT UNIQUE NOT NULL
                     )
                 """)
@@ -103,7 +103,7 @@ class SpotifyBotDatabase:
             song_id (str): Unique identifier for the song (uses Spotify track ID).
             title (str): Song title.
             album (str): Album name.
-            artists (list): List of artist names.
+            artists (list): List of dictionaries containing arist ID (Spotify artist ID) and name.
             user (str): User ID of the person who added the song.
             message_link (str, optional): Link to the message containing the song.
         """
@@ -117,12 +117,12 @@ class SpotifyBotDatabase:
                     VALUES (?, ?, ?, ?, ?)
                 """, (song_id, title, album, user, message_link))
 
-                # Insert artists and associate them with the song
-                for artist_name in artists:
+                # Insert artists into artists table and associate with the song
+                for artist in artists:
                     # Check if the artist already exists
                     cursor.execute("""
-                        SELECT id FROM artists WHERE name = ?
-                    """, (artist_name,))
+                        SELECT id FROM artists WHERE id = ?
+                    """, (artist["id"],))
                     artist_row = cursor.fetchone()
 
                     if artist_row:
@@ -130,10 +130,10 @@ class SpotifyBotDatabase:
                     else:
                         # Insert the artist and fetch its id
                         cursor.execute("""
-                            INSERT INTO artists (name)
-                            VALUES (?)
-                        """, (artist_name,))
-                        artist_id = cursor.lastrowid
+                            INSERT INTO artists (id, name)
+                            VALUES (?, ?)
+                        """, (artist["id"], artist["name"]))
+                        artist_id = artist["id"]
 
                     # Associate the artist with the song
                     cursor.execute("""
@@ -142,7 +142,9 @@ class SpotifyBotDatabase:
                     """, (song_id, artist_id))
 
                 connection.commit()
-                logger.info(f"Inserted song '{title}' with artists {artists} successfully.")
+                # logger.info(f"Inserted song '{title}' with artists {artists} successfully.")
+                logger.info(
+                    f"Insert song '{title}' by {', '.join(artist['name'] for artist in artists)} successfully.")
             except sqlite3.Error as e:
                 logger.error(f"Error inserting song with artists: {e}")
                 connection.rollback()
@@ -455,8 +457,9 @@ class SpotifyBotDatabase:
                     WHERE s.id NOT IN (
                         SELECT song_id FROM reactions WHERE user = ?
                     )
+                    AND s.user != ?
                     GROUP BY s.id, s.title, s.album
-                """, (user_id,))
+                """, (user_id, user_id))
                 rows = cursor.fetchall()
                 return [
                     {
