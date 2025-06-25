@@ -95,7 +95,7 @@ class SpotifyBotDatabase:
             logger.info("No database connection to close.")
 
     # Song-related methods
-    def insert_song_with_artists(self, song_id: str, title: str, album: str, artists: list, user: str, message_link: Optional[str] = None):
+    def insert_song_with_artists(self, song_id: str, title: str, album: str, artists: list, user: str, message_link: Optional[str] = None) -> None:
         """
         Insert a song and its associated artists into the database.
 
@@ -150,7 +150,7 @@ class SpotifyBotDatabase:
                 connection.rollback()
                 raise
 
-    def fetch_songs(self, song_id: Optional[str] = None):
+    def fetch_songs(self, song_id: Optional[str] = None) -> Optional[dict]:
         """
         Fetch song(s) from the database.
 
@@ -213,7 +213,7 @@ class SpotifyBotDatabase:
                 logger.error(f"Error fetching songs: {e}")
                 raise
 
-    def delete_song(self, song_id: str):
+    def delete_song(self, song_id: str) -> None:
         """
         Delete a song and its associated artists from the database.
 
@@ -244,6 +244,42 @@ class SpotifyBotDatabase:
             except sqlite3.Error as e:
                 logger.error(f"Error deleting song: {e}")
                 connection.rollback()
+                raise
+
+    def fetch_song_by_name(self, title: str) -> Optional[list[dict]]:
+        """
+        Fetch all song metadata that matches a given title.
+
+        Args:
+            title (str): Title of the song (or part of the title) to search for.
+
+        Returns:
+            list: List of dictionaries containing song details that match the title.
+                  Returns None if no songs are found.
+        """
+        with sqlite3.connect(self.db_path) as connection:
+            connection.row_factory = sqlite3.Row
+            cursor = connection.cursor()
+            try:
+                cursor.execute("""
+                    SELECT id FROM songs WHERE title LIKE ?
+                """, (f"%{title}%",))
+                rows = cursor.fetchall()
+
+                if not rows:
+                    logger.info(f"No songs found with title: {title}")
+                    return None
+
+                # Use fetch_songs to get full details for each song
+                matching_songs = []
+                for row in rows:
+                    song_details = self.fetch_songs(song_id=row["id"])
+                    if song_details:
+                        matching_songs.append(song_details)
+
+                return matching_songs if matching_songs else None
+            except sqlite3.Error as e:
+                logger.error(f"Error fetching song by name: {e}")
                 raise
 
     def update_song_message_link(self, song_id: str, message_link: str):
@@ -317,7 +353,7 @@ class SpotifyBotDatabase:
                 connection.rollback()
                 raise
 
-    def fetch_reactions_for_track(self, song_id: str):
+    def fetch_reactions_for_track(self, song_id: str) -> list:
         """
         Fetch all reactions for a specific song.
 
@@ -409,18 +445,25 @@ class SpotifyBotDatabase:
                         s.album,
                         COALESCE(AVG(r.reaction), 0) AS average_reaction,
                         COUNT(DISTINCT r.id) AS reaction_count,
-                        GROUP_CONCAT(a.name, ', ') AS artists
+                        (SELECT GROUP_CONCAT(a2.name, ', ')
+                        FROM (SELECT DISTINCT a1.name, sa1.ROWID
+                            FROM song_artists sa1 
+                            JOIN artists a1 ON sa1.artist_id = a1.id 
+                            WHERE sa1.song_id = s.id
+                            ORDER BY sa1.ROWID) a2) AS artists
                     FROM songs s
                     LEFT JOIN reactions r ON s.id = r.song_id
                     LEFT JOIN song_artists sa ON s.id = sa.song_id
                     LEFT JOIN artists a ON sa.artist_id = a.id
                     GROUP BY s.id, s.title, s.album
-                    HAVING COUNT(a.id) > 0  -- Only include songs that have artists
+                    HAVING COUNT(a.id) > 0
                     ORDER BY average_reaction DESC, reaction_count DESC
                     LIMIT ?
                 """, (limit,))
                 rows = cursor.fetchall()
                 logger.info(f"Fetched top {limit} songs successfully.")
+                # print artists of each song
+                logger.info(f"Top songs: {[(row['title'], row['artists']) for row in rows]}")
                 return [
                     {
                         "id": row["id"],

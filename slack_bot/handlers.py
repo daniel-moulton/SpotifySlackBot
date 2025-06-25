@@ -1,7 +1,7 @@
 import re
 import logging
 from slack_bolt import App
-from slack_bot.utils import extract_spotify_track_id, convert_emoji_to_number, format_leaderboard_table, format_unrated_songs_table, get_name_from_id, parse_command_arguments, send_response
+from slack_bot.utils import extract_spotify_track_id, convert_emoji_to_number, format_leaderboard_table, format_unrated_songs_table, get_name_from_id, get_user_id, handle_song_stats, is_valid_spotify_id, parse_command_arguments, send_response, verify_user_exists
 from spotify.api import fetch_track_details
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -359,16 +359,25 @@ def register_handlers(app: App, db: "SpotifyBotDatabase"):
 
         if user:
             # Need just the UID part of the mention
-            user_id = re.search(r"<@([A-Z0-9]+)\|", user)
-            if user_id:
-                user = user_id.group(1)
+            user_id = get_user_id(user)
+            if not user_id:
+                respond("Invalid user mention format. Please use @username format.")
+                return
+            if not verify_user_exists(user_id, app):
+                respond(f"User `{user_id}` does not exist or is not accessible.")
+                return
         else:
             # Default to the user who invoked the command
-            user = command['user_id']
+            user_id = command['user_id']
 
-        user_name = get_name_from_id(user, app)
+        # Get the user's display name
+        user_name = get_name_from_id(user_id, app)
+        if not user_name:
+            respond("Could not find user information. Please try again later.")
+            return
+
         try:
-            unrated_songs = db.get_unrated_songs(user_id=user)
+            unrated_songs = db.get_unrated_songs(user_id=user_id)
             if not unrated_songs:
                 send_response(respond, say, f"No unrated songs found for {user_name}.", is_public)
                 return
@@ -390,8 +399,93 @@ def register_handlers(app: App, db: "SpotifyBotDatabase"):
         - `--public`: If set, the response will be visible to all users in the channel.
         - `--user <@U12345678>`: Specify a user to check for statistics.
         - `--song <spotify_track_id | song_name>`: Specify a song to check for statistics.
-
+        - `--artist <spotify_artist_id | artist_name>`: Specify an artist to check for statistics.
         """
+        logger.info("Stats command received")
+        ack()
+
+        command_text = command.get('text', '').strip()
+        args = parse_command_arguments(command_text)
+
+        is_public = args.get('public', False)
+        user = args.get('user', None)
+        song = args.get('song', None)
+        artist = args.get('artist', None)
+
+        # Must be either song, artist, or user specified can't be more than one
+        if sum([bool(user), bool(song), bool(artist)]) != 1:
+            respond("Please specify exactly one of the following: --user, --song, or --artist.")
+            return
+
+        returned_text = ""
+
+        if user:
+            user_id = get_user_id(user)
+            if not user_id:
+                respond("Invalid user mention format. Please use @username format.")
+                return
+            if not verify_user_exists(user_id, app):
+                respond(f"User `{user_id}` does not exist or is not accessible.")
+                return
+
+            # returned_text = handle_user_stats(user_id, app)
+
+        elif song:
+            # Check if the song is a Spotify track ID or a name
+            track_id = extract_spotify_track_id(song)
+
+            if not track_id and is_valid_spotify_id(song):
+                # If it's a valid Spotify ID, use it directly
+                track_id = song
+
+            if not track_id:
+                # If it's not a valid track ID, assume it's a song name
+                matches = db.fetch_song_by_name(song)
+
+                if not matches:
+                    respond(f"No songs found with the name '{song}'.")
+                    return
+
+                # Only one match, can assume it's the song they want stats for
+                if len(matches) == 1:
+                    track_id = matches[0]['id']
+
+                # If multiple matches, ask for clarification
+                else:
+                    # Multiple matches, display the list of matching songs
+                    match_list = "\n".join(
+                        f"*{match['title']}* (Album: {match['album']}, ID: `{match['id']}`)"
+                        for match in matches
+                    )
+                    respond(
+                        f"Multiple songs found matching '{song}'. Please refine your query or use one of the track IDs below:\n{match_list}"
+                    )
+                    return
+
+            if not track_id:
+                respond(f"No valid Spotify track ID or song name found for '{song}'.")
+                return
+
+            song_details = db.fetch_songs(song_id=track_id)
+            reaction_details = db.fetch_reactions_for_track(song_id=track_id)
+
+            if not song_details:
+                respond(f"No song found with the ID '{track_id}'.")
+                return
+
+            returned_text = handle_song_stats(song_details, reaction_details, app)
+
+        elif artist:
+            # Check if the artist is a Spotify artist ID or a name
+            artist_id = db.fetch_artist_id_by_name(artist)
+            if not artist_id:
+                respond(f"No artist found with the name '{artist}'.")
+                return
+
+            # returned_text = handle_artist_stats(artist_id, db)
+
+        if returned_text:
+            send_response(respond, say, returned_text, is_public)
 
     @app.error
     def custom_error_handler(error, body, logger):
