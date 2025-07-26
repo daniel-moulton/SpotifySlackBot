@@ -435,6 +435,13 @@ def register_handlers(app: App, db: "SpotifyBotDatabase"):
             # returned_text = handle_user_stats(user_id, app)
 
         elif song:
+            # Check if the song argument is provided
+            # TODO: Maybe needs refactoring (if we're here then we know the --song argument is provided, but `--song --public` would still be valid)
+            # If an actual song is provided, song will be a string, otherwise if it's another argument it will be True
+            # Perhaps should have a whitelist in parse_command_arguments to decipher between flags (--public) and actual arguments (--song, --user etc.)
+            if song is True:
+                respond("Please specify a song using the --song argument.")
+                return
             # Check if the song is a Spotify track ID or a name
             track_id = extract_spotify_track_id(song)
 
