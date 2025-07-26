@@ -325,6 +325,10 @@ def register_handlers(app: App, db: "SpotifyBotDatabase"):
         is_public = args.get('public', False)
         count = args.get('count', '10')
 
+        if not count.isdigit() or int(count) <= 0:
+            respond("Invalid count specified. Please provide a positive integer.")
+            return
+
         try:
             top_songs = db.get_top_songs(limit=int(count))
             if not top_songs:
