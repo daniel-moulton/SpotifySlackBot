@@ -2,6 +2,7 @@ import re
 import logging
 from typing import Optional
 from datetime import datetime
+from slack_bot.templates import SONG_STATS_TEMPLATE
 
 logger = logging.getLogger(__name__)
 
@@ -239,35 +240,34 @@ def handle_song_stats(song_details: dict, reaction_details: list, app) -> str:
     if not song_details:
         return "No song details found."
 
-    # Format the song details
-    song_title = song_details.get('title', 'Unknown Title')
-    song_artists = ", ".join(song_details.get('artists', ['Unknown Artist']))
-    song_album = song_details.get('album', 'Unknown Album')
-    user = song_details.get('user', 'Unknown User')
-    user_name = get_name_from_id(user, app) if user != 'Unknown User' else 'Unknown User'
-    message_link = song_details.get('message_link', '#')
+    # Preprocess song details
+    song_title: str = song_details.get('title', 'Unknown Title')
+    song_artists: str = ", ".join(song_details.get('artists', ['Unknown Artist']))
+    song_album: str = song_details.get('album', 'Unknown Album')
+    user: str = song_details.get('user', 'Unknown User')
+    user_name: str = get_name_from_id(user, app) if user != 'Unknown User' else 'Unknown User'
+    message_link: str = song_details.get('message_link', '#')
+    message_time: str = get_message_time(message_link) if message_link != '#' else 'Unknown'
+    message_link_fmt: str = f"<{message_link}|*_Go to song_*>" if message_link != '#' else '#'
 
-    if message_link != '#':
-        message_time = get_message_time(message_link)
-        message_link = f"<{message_link}|*_Go to song_*>"
+    rating_stats: dict = get_rating_stats(reaction_details, app)
 
-    formatted_song_details = (
-        f"*Song Details:*\n"
-        f"🎵 {song_title} by {song_artists}\n"
-        f"💿 {song_album} | 👤 {user_name} | 🕒 {message_time if message_link != '#' else 'Unknown'}\n"
-        f"🔗 {message_link}\n\n"
-    )
+    data: dict = {
+        'title': song_title,
+        'artists': song_artists,
+        'album': song_album,
+        'user_name': user_name,
+        'message_time': message_time,
+        'message_link': message_link_fmt,
+        'average_rating': rating_stats['average_rating'],
+        'reaction_count': rating_stats['reaction_count'],
+        'user_ratings': rating_stats['user_ratings']
+    }
 
-    # Calculate average rating and reaction count
-    if not reaction_details:
-        return formatted_song_details + "No reactions found for this song."
-
-    rating_stats = get_rating_stats(reaction_details, app)
-
-    return formatted_song_details + rating_stats
+    return format_stats_message(SONG_STATS_TEMPLATE, data)
 
 
-def get_rating_stats(reaction_details: list, app) -> str:
+def get_rating_stats(reaction_details: list, app) -> dict:
     """
     Calculate average rating and reaction count from reaction details.
 
@@ -278,32 +278,34 @@ def get_rating_stats(reaction_details: list, app) -> str:
         app (App): The Slack app instance to interact with Slack API.
 
     Returns:
-        str: Formatted message with average rating, reaction count, and user ratings.
+        dict: Dictionary with average_rating (str), reaction_count (int), user_ratings (str)
     """
     if not reaction_details:
-        return "No reactions found."
+        return {
+            'average_rating': 'N/A',
+            'reaction_count': 0,
+            'user_ratings': 'No user ratings.'
+        }
 
-    total_rating = sum(reaction.get('reaction', 0) for reaction in reaction_details)
-    reaction_count = len(reaction_details)
-    average_rating = total_rating / reaction_count if reaction_count > 0 else 0
+    total_rating: int = sum(reaction.get('reaction', 0) for reaction in reaction_details)
+    reaction_count: int = len(reaction_details)
+    average_rating: str = f"{(total_rating / reaction_count):.1f}" if reaction_count > 0 else 'N/A'
 
-    user_ratings = []
+    user_ratings: list = []
     for reaction in reaction_details:
-        user_id = reaction.get('user')
+        user_id: str = reaction.get('user')
         if user_id:
-            user_name = get_name_from_id(user_id, app)
-            rating_emoji = convert_number_to_emoji(reaction.get('reaction', 0))
+            user_name: str = get_name_from_id(user_id, app)
+            rating_emoji: str = convert_number_to_emoji(reaction.get('reaction', 0))
             user_ratings.append(f"{user_name}: {rating_emoji}")
 
-    user_ratings_str = "\n".join(user_ratings) if user_ratings else "No user ratings."
-    average_rating_str = f"{average_rating:.1f}" if average_rating > 0 else "N/A"
-    reaction_count_str = str(reaction_count)
+    user_ratings_str: str = "\n".join(user_ratings) if user_ratings else "No user ratings."
 
-    return (
-        f"*Rating Stats:*\n"
-        f"⭐ Average Rating: {average_rating_str} ({reaction_count_str} reactions)\n"
-        f"👥 User Ratings:\n {user_ratings_str}\n"
-    )
+    return {
+        'average_rating': average_rating,
+        'reaction_count': reaction_count,
+        'user_ratings': user_ratings_str
+    }
 
 
 def get_message_time(message_link: str) -> str:
@@ -371,3 +373,21 @@ def send_response(respond, say, message: str, is_public: bool = False) -> None:
         say(message, unfurl_links=False, unfurl_media=False)
     else:
         respond(message, unfurl_links=False, unfurl_media=False)
+
+
+def format_stats_message(template: str, data: dict) -> str:
+    """
+    Format a message using a template and data.
+
+    Args:
+        template (str): The message template with placeholders.
+        data (dict): A dictionary containing the data to fill in the template.
+
+    Returns:
+        str: The formatted message.
+    """
+    try:
+        return template.format(**data)
+    except KeyError as e:
+        logger.error(f"Missing key in data for formatting: {e}")
+        return "Error formatting message. Missing data."
