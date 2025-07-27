@@ -424,7 +424,11 @@ def register_handlers(app: App, db: "SpotifyBotDatabase"):
             handle_stats_artist(artist, app, respond, say, is_public, db)
 
 
-def handle_stats_user(user, app, respond, say, is_public, db):
+def handle_stats_user(user, app, respond, say, is_public, db) -> None:
+    if user is True:
+        respond("Please specify a user using the --user argument.")
+        return
+    
     user_id = get_user_id(user)
     if not user_id:
         respond("Invalid user mention format. Please use @username format.")
