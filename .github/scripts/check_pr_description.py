@@ -1,3 +1,4 @@
+"""Script to check the format of a pull request (PR) description."""
 import sys
 
 REQUIRED_SECTIONS = [
@@ -9,10 +10,11 @@ REQUIRED_SECTIONS = [
 
 
 def main():
+    """Main function to check PR description format."""
     if len(sys.argv) < 2:
         print("Usage: check_pr_description.py <pr_body_file>")
         sys.exit(1)
-    with open(sys.argv[1], "r") as f:
+    with open(sys.argv[1], "r", encoding="utf-8") as f:
         body = f.read()
     missing = [section for section in REQUIRED_SECTIONS if section not in body]
     if missing:

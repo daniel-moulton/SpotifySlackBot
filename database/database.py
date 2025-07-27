@@ -1,5 +1,6 @@
+"""SpotifyBotDatabase class for managing a SQLite database for Spotify Slack bot"""
+
 import sqlite3
-import os
 import logging
 from typing import Optional
 
@@ -9,6 +10,8 @@ logger = logging.getLogger(__name__)
 
 
 class SpotifyBotDatabase:
+    """Database class for managing Spotify-related data in a SQLite database."""
+
     def __init__(self, db_path: str = "spotify_bot.db"):
         """
         Initialize the database connection and create tables if they do not exist.
@@ -26,9 +29,9 @@ class SpotifyBotDatabase:
         try:
             self.connection = sqlite3.connect(self.db_path)
             self.connection.row_factory = sqlite3.Row  # Enable row access by name
-            logger.info(f"Connected to database at {self.db_path}")
+            logger.info("Connected to database at %s", self.db_path)
         except sqlite3.Error as e:
-            logger.error(f"Error connecting to database: {e}")
+            logger.error("Error connecting to database: %s", e)
             raise
 
     def _create_tables(self):
@@ -90,7 +93,7 @@ class SpotifyBotDatabase:
                 connection.commit()
                 logger.info("Tables created successfully.")
             except sqlite3.Error as e:
-                logger.error(f"Error creating tables: {e}")
+                logger.error("Error creating tables: %s", e)
                 connection.rollback()
                 raise
 
@@ -170,12 +173,11 @@ class SpotifyBotDatabase:
                     )
 
                 connection.commit()
-                # logger.info(f"Inserted song '{title}' with artists {artists} successfully.")
                 logger.info(
-                    f"Insert song '{title}' by {', '.join(artist['name'] for artist in artists)} successfully."
+                    "Inserted song '{title}' by %s successfully.", ", ".join(artist["name"] for artist in artists)
                 )
             except sqlite3.Error as e:
-                logger.error(f"Error inserting song with artists: {e}")
+                logger.error("Error inserting song with artists: %s", e)
                 connection.rollback()
                 raise
 
@@ -214,14 +216,12 @@ class SpotifyBotDatabase:
                             "id": row["id"],
                             "title": row["title"],
                             "album": row["album"],
-                            "artists": (
-                                row["artists"].split(",") if row["artists"] else []
-                            ),
+                            "artists": (row["artists"].split(",") if row["artists"] else []),
                             "user": row["user"],
                             "message_link": row["message_link"],
                         }
                     else:
-                        logger.info(f"No song found with ID: {song_id}")
+                        logger.info("No song found with ID: %s", song_id)
                         return None
                 else:
                     # Fetch all songs
@@ -240,16 +240,14 @@ class SpotifyBotDatabase:
                             "id": row["id"],
                             "title": row["title"],
                             "album": row["album"],
-                            "artists": (
-                                row["artists"].split(",") if row["artists"] else []
-                            ),
+                            "artists": (row["artists"].split(",") if row["artists"] else []),
                             "user": row["user"],
                             "message_link": row["message_link"],
                         }
                         for row in rows
                     ]
             except sqlite3.Error as e:
-                logger.error(f"Error fetching songs: {e}")
+                logger.error("Error fetching songs: %s", e)
                 raise
 
     def delete_song(self, song_id: str) -> None:
@@ -288,9 +286,9 @@ class SpotifyBotDatabase:
                 )
 
                 connection.commit()
-                logger.info(f"Deleted song with ID: {song_id} successfully.")
+                logger.info("Deleted song with ID: %s successfully.", song_id)
             except sqlite3.Error as e:
-                logger.error(f"Error deleting song: {e}")
+                logger.error("Error deleting song: %s", e)
                 connection.rollback()
                 raise
 
@@ -318,7 +316,7 @@ class SpotifyBotDatabase:
                 rows = cursor.fetchall()
 
                 if not rows:
-                    logger.info(f"No songs found with title: {title}")
+                    logger.info("No songs found with title: %s", title)
                     return None
 
                 # Use fetch_songs to get full details for each song
@@ -330,7 +328,7 @@ class SpotifyBotDatabase:
 
                 return matching_songs if matching_songs else None
             except sqlite3.Error as e:
-                logger.error(f"Error fetching song by name: {e}")
+                logger.error("Error fetching song by name: %s", e)
                 raise
 
     def update_song_message_link(self, song_id: str, message_link: str):
@@ -354,9 +352,9 @@ class SpotifyBotDatabase:
                     (message_link, song_id),
                 )
                 connection.commit()
-                logger.info(f"Updated message link for song ID {song_id}.")
+                logger.info("Updated message link for song ID %s.", song_id)
             except sqlite3.Error as e:
-                logger.error(f"Error updating message link: {e}")
+                logger.error("Error updating message link: %s", e)
                 connection.rollback()
                 raise
 
@@ -382,11 +380,9 @@ class SpotifyBotDatabase:
                     (song_id, user, reaction),
                 )
                 connection.commit()
-                logger.info(
-                    f"Inserted reaction {reaction} for song ID {song_id} by user {user}."
-                )
+                logger.info("Inserted reaction {reaction} for song ID {song_id} by user %s.", user)
             except sqlite3.Error as e:
-                logger.error(f"Error inserting reaction: {e}")
+                logger.error("Error inserting reaction: %s", e)
                 connection.rollback()
                 raise
 
@@ -409,9 +405,9 @@ class SpotifyBotDatabase:
                     (song_id, user),
                 )
                 connection.commit()
-                logger.info(f"Removed reaction for song ID {song_id} by user {user}.")
+                logger.info("Removed reaction for song ID {song_id} by user %s.", user)
             except sqlite3.Error as e:
-                logger.error(f"Error removing reaction: {e}")
+                logger.error("Error removing reaction: %s", e)
                 connection.rollback()
                 raise
 
@@ -436,11 +432,9 @@ class SpotifyBotDatabase:
                     (song_id,),
                 )
                 rows = cursor.fetchall()
-                return [
-                    {"user": row["user"], "reaction": row["reaction"]} for row in rows
-                ]
+                return [{"user": row["user"], "reaction": row["reaction"]} for row in rows]
             except sqlite3.Error as e:
-                logger.error(f"Error fetching reactions: {e}")
+                logger.error("Error fetching reactions: %s", e)
                 raise
 
     def fetch_reactions_by_user(self, user: str):
@@ -464,12 +458,9 @@ class SpotifyBotDatabase:
                     (user,),
                 )
                 rows = cursor.fetchall()
-                return [
-                    {"song_id": row["song_id"], "reaction": row["reaction"]}
-                    for row in rows
-                ]
+                return [{"song_id": row["song_id"], "reaction": row["reaction"]} for row in rows]
             except sqlite3.Error as e:
-                logger.error(f"Error fetching user reactions: {e}")
+                logger.error("Error fetching user reactions: %s", e)
                 raise
 
     def fetch_reaction(self, song_id: str, user: str) -> Optional[int]:
@@ -496,13 +487,14 @@ class SpotifyBotDatabase:
                 row = cursor.fetchone()
                 return row["reaction"] if row else None
             except sqlite3.Error as e:
-                logger.error(f"Error fetching reaction: {e}")
+                logger.error("Error fetching reaction: %s", e)
                 raise
 
     # Stats-related methods
     def get_top_songs(self, limit: int = 10):
         """
-        Get the top songs based on the average reaction value/rating (sum of all reactions divided by the number of reactions).
+        Get the top songs based on the average reaction value/rating
+        (sum of all reactions divided by the number of reactions).
 
         Args:
             limit (int): Number of top songs to return. Defaults to 10.
@@ -540,11 +532,9 @@ class SpotifyBotDatabase:
                     (limit,),
                 )
                 rows = cursor.fetchall()
-                logger.info(f"Fetched top {limit} songs successfully.")
+                logger.info("Fetched top %s songs successfully.", limit)
                 # print artists of each song
-                logger.info(
-                    f"Top songs: {[(row['title'], row['artists']) for row in rows]}"
-                )
+                logger.info("Top songs: %s", [(row["title"], row["artists"]) for row in rows])
                 return [
                     {
                         "id": row["id"],
@@ -557,7 +547,7 @@ class SpotifyBotDatabase:
                     for row in rows
                 ]
             except sqlite3.Error as e:
-                logger.error(f"Error fetching top songs: {e}")
+                logger.error("Error fetching top songs: %s", e)
                 raise
 
     def get_unrated_songs(self, user_id: str):
@@ -600,5 +590,5 @@ class SpotifyBotDatabase:
                     for row in rows
                 ]
             except sqlite3.Error as e:
-                logger.error(f"Error fetching unrated songs: {e}")
+                logger.error("Error fetching unrated songs: %s", e)
                 raise

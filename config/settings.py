@@ -1,3 +1,4 @@
+"""Configuration settings for the Spotify Slack Bot."""
 import os
 import logging
 from dotenv import load_dotenv
@@ -30,7 +31,7 @@ def setup_logging(log_file: str = "slack_bot.log", level: int = logging.INFO):
 
     # Clear the log file before starting the application
     if os.path.exists(log_file):
-        with open(log_file, "w"):
+        with open(log_file, "w", encoding="utf-8"):
             pass  # Truncate the file
 
     # Set up logging

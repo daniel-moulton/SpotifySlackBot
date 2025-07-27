@@ -1,0 +1,15 @@
+[MASTER]
+
+[MESSAGES CONTROL]
+disable=W0718, # W0718: broad-exception-caught - Disabled to allow catching all exceptions for logging or fallback logic.
+        W0511, # W0511: fixme - Disabled to allow leaving TODO/FIXME comments in code without lint errors.
+        R0911, # R0911: too-many-return-statements - Disabled to allow functions with multiple return points for clarity.
+        R0912, # R0912: too-many-branches - Disabled for same as above.
+        R0914, # R0914: too-many-locals - Disabled to allow functions with more local variables for complex logic.
+        R0915, # R0915: too-many-statements - Disabled to allow the main event handler to work as intended.
+
+[FORMAT]
+max-line-length=120
+
+[REPORTS]
+output-format = colorized

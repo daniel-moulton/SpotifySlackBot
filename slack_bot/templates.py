@@ -1,3 +1,5 @@
+"""Template strings for Slack bot messages."""
+
 SONG_STATS_TEMPLATE = """
 *Song Details:*
 🎵 {title} by {artists}
