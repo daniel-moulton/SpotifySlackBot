@@ -1,4 +1,5 @@
 """Handlers for Slack bot events and commands related to Spotify tracks."""
+
 import re
 import logging
 from typing import TYPE_CHECKING
@@ -26,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 def register_handlers(app: App, db: "SpotifyBotDatabase"):
     """Register event handlers for the Slack app."""
+
     @app.message(re.compile(r"https://open\.spotify\.com/track/"))
     def handle_spotify_track_message(message) -> None:
         track_id = extract_spotify_track_id(message["text"])
@@ -302,7 +304,10 @@ def register_handlers(app: App, db: "SpotifyBotDatabase"):
         if existing_reaction != numeric_value:
             logger.warning(
                 "Reaction mismatch for user <@%s> on song ID %s. Expected %s, got %s.",
-                user, track_id, existing_reaction, numeric_value
+                user,
+                track_id,
+                existing_reaction,
+                numeric_value,
             )
             return
 

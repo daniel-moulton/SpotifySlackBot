@@ -1,4 +1,5 @@
 """Script to check the format of a pull request (PR) description."""
+
 import sys
 
 REQUIRED_SECTIONS = [

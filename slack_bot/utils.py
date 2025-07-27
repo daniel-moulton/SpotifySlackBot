@@ -1,4 +1,5 @@
 """Utility functions for the Slack bot."""
+
 import re
 import logging
 from datetime import datetime

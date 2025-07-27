@@ -1,4 +1,5 @@
 """Main entry point for the Spotify Slack Bot application."""
+
 import logging
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler

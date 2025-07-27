@@ -1,4 +1,5 @@
 """Spotify API integration for the Slack bot."""
+
 import logging
 from spotipy import Spotify
 from spotipy.oauth2 import SpotifyClientCredentials
