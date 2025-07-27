@@ -67,14 +67,16 @@ def register_handlers(app: App, db: "SpotifyBotDatabase"):
             if not original_message_link and message_link:
                 logger.info("Updating original message link for track ID: %s", track_id)
                 db.update_song_message_link(song_id=track_details["id"], message_link=message_link)
+            link_text = ""
+            if message_link:
+                link_url = original_message_link or message_link
+                link_text = f"<{link_url}|View/rate the original message!>"
+
             app.client.chat_postEphemeral(
                 channel=message["channel"],
-                text="Track already exists in the database! 🎵\n"
-                f"{f'<{original_message_link or message_link}|View/rate the original message!>'
-                   if message_link else ''}",
+                text="Track already exists in the database! 🎵\n" + link_text,
                 user=message["user"],
             )
-            return
 
         # Insert the song and its artists into the database
         db.insert_song_with_artists(
