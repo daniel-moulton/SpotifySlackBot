@@ -23,10 +23,7 @@ register_handlers(app, db)
 
 if __name__ == "__main__":
     try:
-        handler = SocketModeHandler(
-            app,
-            get_env_variable("SLACK_APP_TOKEN")
-        )
+        handler = SocketModeHandler(app, get_env_variable("SLACK_APP_TOKEN"))
         logger.info("Starting Slack app...")
         handler.start()
         logger.info("Slack app started successfully!")

@@ -38,7 +38,8 @@ class SpotifyBotDatabase:
             cursor = connection.cursor()
             try:
                 # Create songs table
-                cursor.execute("""
+                cursor.execute(
+                    """
                     CREATE TABLE IF NOT EXISTS songs (
                         id TEXT PRIMARY KEY,
                         title TEXT NOT NULL,
@@ -46,18 +47,22 @@ class SpotifyBotDatabase:
                         user TEXT NOT NULL,
                         message_link TEXT
                     )
-                """)
+                """
+                )
 
                 # Create artists table
-                cursor.execute("""
+                cursor.execute(
+                    """
                     CREATE TABLE IF NOT EXISTS artists (
                         id TEXT PRIMARY KEY,
                         name TEXT UNIQUE NOT NULL
                     )
-                """)
+                """
+                )
 
                 # Create song_artists table
-                cursor.execute("""
+                cursor.execute(
+                    """
                     CREATE TABLE IF NOT EXISTS song_artists (
                         song_id TEXT NOT NULL,
                         artist_id INTEGER NOT NULL,
@@ -65,10 +70,12 @@ class SpotifyBotDatabase:
                         FOREIGN KEY (artist_id) REFERENCES artists (id),
                         PRIMARY KEY (song_id, artist_id)
                     )
-                """)
+                """
+                )
 
                 # Create reactions table
-                cursor.execute("""
+                cursor.execute(
+                    """
                     CREATE TABLE IF NOT EXISTS reactions (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         song_id TEXT NOT NULL,
@@ -77,7 +84,8 @@ class SpotifyBotDatabase:
                         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
                         FOREIGN KEY (song_id) REFERENCES songs (id)
                     )
-                """)
+                """
+                )
 
                 connection.commit()
                 logger.info("Tables created successfully.")
@@ -95,7 +103,15 @@ class SpotifyBotDatabase:
             logger.info("No database connection to close.")
 
     # Song-related methods
-    def insert_song_with_artists(self, song_id: str, title: str, album: str, artists: list, user: str, message_link: Optional[str] = None) -> None:
+    def insert_song_with_artists(
+        self,
+        song_id: str,
+        title: str,
+        album: str,
+        artists: list,
+        user: str,
+        message_link: Optional[str] = None,
+    ) -> None:
         """
         Insert a song and its associated artists into the database.
 
@@ -112,39 +128,52 @@ class SpotifyBotDatabase:
             cursor = connection.cursor()
             try:
                 # Insert song into songs table
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT OR IGNORE INTO songs (id, title, album, user, message_link)
                     VALUES (?, ?, ?, ?, ?)
-                """, (song_id, title, album, user, message_link))
+                """,
+                    (song_id, title, album, user, message_link),
+                )
 
                 # Insert artists into artists table and associate with the song
                 for artist in artists:
                     # Check if the artist already exists
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         SELECT id FROM artists WHERE id = ?
-                    """, (artist["id"],))
+                    """,
+                        (artist["id"],),
+                    )
                     artist_row = cursor.fetchone()
 
                     if artist_row:
                         artist_id = artist_row["id"]
                     else:
                         # Insert the artist and fetch its id
-                        cursor.execute("""
+                        cursor.execute(
+                            """
                             INSERT INTO artists (id, name)
                             VALUES (?, ?)
-                        """, (artist["id"], artist["name"]))
+                        """,
+                            (artist["id"], artist["name"]),
+                        )
                         artist_id = artist["id"]
 
                     # Associate the artist with the song
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         INSERT OR IGNORE INTO song_artists (song_id, artist_id)
                         VALUES (?, ?)
-                    """, (song_id, artist_id))
+                    """,
+                        (song_id, artist_id),
+                    )
 
                 connection.commit()
                 # logger.info(f"Inserted song '{title}' with artists {artists} successfully.")
                 logger.info(
-                    f"Insert song '{title}' by {', '.join(artist['name'] for artist in artists)} successfully.")
+                    f"Insert song '{title}' by {', '.join(artist['name'] for artist in artists)} successfully."
+                )
             except sqlite3.Error as e:
                 logger.error(f"Error inserting song with artists: {e}")
                 connection.rollback()
@@ -168,46 +197,56 @@ class SpotifyBotDatabase:
             try:
                 if song_id:
                     # Fetch a specific song
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         SELECT s.id, s.title, s.album, s.user, s.message_link, GROUP_CONCAT(a.name) AS artists
                         FROM songs s
                         LEFT JOIN song_artists sa ON s.id = sa.song_id
                         LEFT JOIN artists a ON sa.artist_id = a.id
                         WHERE s.id = ?
                         GROUP BY s.id
-                    """, (song_id,))
+                    """,
+                        (song_id,),
+                    )
                     row = cursor.fetchone()
                     if row:
                         return {
                             "id": row["id"],
                             "title": row["title"],
                             "album": row["album"],
-                            "artists": row["artists"].split(",") if row["artists"] else [],
+                            "artists": (
+                                row["artists"].split(",") if row["artists"] else []
+                            ),
                             "user": row["user"],
-                            "message_link": row["message_link"]
+                            "message_link": row["message_link"],
                         }
                     else:
                         logger.info(f"No song found with ID: {song_id}")
                         return None
                 else:
                     # Fetch all songs
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         SELECT s.id, s.title, s.album, GROUP_CONCAT(a.name) AS artists
                         FROM songs s
                         LEFT JOIN song_artists sa ON s.id = sa.song_id
                         LEFT JOIN artists a ON sa.artist_id = a.id
                         GROUP BY s.id
-                    """)
+                    """
+                    )
                     rows = cursor.fetchall()
                     return [
                         {
                             "id": row["id"],
                             "title": row["title"],
                             "album": row["album"],
-                            "artists": row["artists"].split(",") if row["artists"] else [],
+                            "artists": (
+                                row["artists"].split(",") if row["artists"] else []
+                            ),
                             "user": row["user"],
-                            "message_link": row["message_link"]
-                        } for row in rows
+                            "message_link": row["message_link"],
+                        }
+                        for row in rows
                     ]
             except sqlite3.Error as e:
                 logger.error(f"Error fetching songs: {e}")
@@ -225,19 +264,28 @@ class SpotifyBotDatabase:
             cursor = connection.cursor()
             try:
                 # Delete from song_artists table
-                cursor.execute("""
+                cursor.execute(
+                    """
                     DELETE FROM song_artists WHERE song_id = ?
-                """, (song_id,))
+                """,
+                    (song_id,),
+                )
 
                 # Delete from songs table
-                cursor.execute("""
+                cursor.execute(
+                    """
                     DELETE FROM songs WHERE id = ?
-                """, (song_id,))
+                """,
+                    (song_id,),
+                )
 
                 # Delete from reactions table
-                cursor.execute("""
+                cursor.execute(
+                    """
                     DELETE FROM reactions WHERE song_id = ?
-                """, (song_id,))
+                """,
+                    (song_id,),
+                )
 
                 connection.commit()
                 logger.info(f"Deleted song with ID: {song_id} successfully.")
@@ -261,9 +309,12 @@ class SpotifyBotDatabase:
             connection.row_factory = sqlite3.Row
             cursor = connection.cursor()
             try:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT id FROM songs WHERE title LIKE ?
-                """, (f"%{title}%",))
+                """,
+                    (f"%{title}%",),
+                )
                 rows = cursor.fetchall()
 
                 if not rows:
@@ -294,11 +345,14 @@ class SpotifyBotDatabase:
             connection.row_factory = sqlite3.Row
             cursor = connection.cursor()
             try:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     UPDATE songs
                     SET message_link = ?
                     WHERE id = ?
-                """, (message_link, song_id))
+                """,
+                    (message_link, song_id),
+                )
                 connection.commit()
                 logger.info(f"Updated message link for song ID {song_id}.")
             except sqlite3.Error as e:
@@ -320,12 +374,17 @@ class SpotifyBotDatabase:
             connection.row_factory = sqlite3.Row
             cursor = connection.cursor()
             try:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT INTO reactions (song_id, user, reaction)
                     VALUES (?, ?, ?)
-                """, (song_id, user, reaction))
+                """,
+                    (song_id, user, reaction),
+                )
                 connection.commit()
-                logger.info(f"Inserted reaction {reaction} for song ID {song_id} by user {user}.")
+                logger.info(
+                    f"Inserted reaction {reaction} for song ID {song_id} by user {user}."
+                )
             except sqlite3.Error as e:
                 logger.error(f"Error inserting reaction: {e}")
                 connection.rollback()
@@ -343,9 +402,12 @@ class SpotifyBotDatabase:
             connection.row_factory = sqlite3.Row
             cursor = connection.cursor()
             try:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     DELETE FROM reactions WHERE song_id = ? AND user = ?
-                """, (song_id, user))
+                """,
+                    (song_id, user),
+                )
                 connection.commit()
                 logger.info(f"Removed reaction for song ID {song_id} by user {user}.")
             except sqlite3.Error as e:
@@ -367,11 +429,16 @@ class SpotifyBotDatabase:
             connection.row_factory = sqlite3.Row
             cursor = connection.cursor()
             try:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT user, reaction FROM reactions WHERE song_id = ?
-                """, (song_id,))
+                """,
+                    (song_id,),
+                )
                 rows = cursor.fetchall()
-                return [{"user": row["user"], "reaction": row["reaction"]} for row in rows]
+                return [
+                    {"user": row["user"], "reaction": row["reaction"]} for row in rows
+                ]
             except sqlite3.Error as e:
                 logger.error(f"Error fetching reactions: {e}")
                 raise
@@ -390,11 +457,17 @@ class SpotifyBotDatabase:
             connection.row_factory = sqlite3.Row
             cursor = connection.cursor()
             try:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT song_id, reaction FROM reactions WHERE user = ?
-                """, (user,))
+                """,
+                    (user,),
+                )
                 rows = cursor.fetchall()
-                return [{"song_id": row["song_id"], "reaction": row["reaction"]} for row in rows]
+                return [
+                    {"song_id": row["song_id"], "reaction": row["reaction"]}
+                    for row in rows
+                ]
             except sqlite3.Error as e:
                 logger.error(f"Error fetching user reactions: {e}")
                 raise
@@ -414,9 +487,12 @@ class SpotifyBotDatabase:
             connection.row_factory = sqlite3.Row
             cursor = connection.cursor()
             try:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT reaction FROM reactions WHERE song_id = ? AND user = ?
-                """, (song_id, user))
+                """,
+                    (song_id, user),
+                )
                 row = cursor.fetchone()
                 return row["reaction"] if row else None
             except sqlite3.Error as e:
@@ -438,7 +514,8 @@ class SpotifyBotDatabase:
             connection.row_factory = sqlite3.Row
             cursor = connection.cursor()
             try:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT
                         s.id,
                         s.title,
@@ -459,11 +536,15 @@ class SpotifyBotDatabase:
                     HAVING COUNT(a.id) > 0
                     ORDER BY average_reaction DESC, reaction_count DESC
                     LIMIT ?
-                """, (limit,))
+                """,
+                    (limit,),
+                )
                 rows = cursor.fetchall()
                 logger.info(f"Fetched top {limit} songs successfully.")
                 # print artists of each song
-                logger.info(f"Top songs: {[(row['title'], row['artists']) for row in rows]}")
+                logger.info(
+                    f"Top songs: {[(row['title'], row['artists']) for row in rows]}"
+                )
                 return [
                     {
                         "id": row["id"],
@@ -471,8 +552,9 @@ class SpotifyBotDatabase:
                         "album": row["album"],
                         "reaction_count": row["reaction_count"],
                         "average_reaction": row["average_reaction"],
-                        "artists": row["artists"] if row["artists"] else "Unknown"
-                    } for row in rows
+                        "artists": row["artists"] if row["artists"] else "Unknown",
+                    }
+                    for row in rows
                 ]
             except sqlite3.Error as e:
                 logger.error(f"Error fetching top songs: {e}")
@@ -492,7 +574,8 @@ class SpotifyBotDatabase:
             connection.row_factory = sqlite3.Row
             cursor = connection.cursor()
             try:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT s.id, s.title, s.album, s.message_link, GROUP_CONCAT(a.name) AS artists
                     FROM songs s
                     LEFT JOIN song_artists sa ON s.id = sa.song_id
@@ -502,7 +585,9 @@ class SpotifyBotDatabase:
                     )
                     AND s.user != ?
                     GROUP BY s.id, s.title, s.album
-                """, (user_id, user_id))
+                """,
+                    (user_id, user_id),
+                )
                 rows = cursor.fetchall()
                 return [
                     {
@@ -510,8 +595,9 @@ class SpotifyBotDatabase:
                         "title": row["title"],
                         "album": row["album"],
                         "artists": row["artists"].split(",") if row["artists"] else [],
-                        "message_link": row["message_link"]
-                    } for row in rows
+                        "message_link": row["message_link"],
+                    }
+                    for row in rows
                 ]
             except sqlite3.Error as e:
                 logger.error(f"Error fetching unrated songs: {e}")

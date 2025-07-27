@@ -14,7 +14,7 @@ def get_env_variable(var_name):
     return value
 
 
-def setup_logging(log_file: str = 'slack_bot.log', level: int = logging.INFO):
+def setup_logging(log_file: str = "slack_bot.log", level: int = logging.INFO):
     """
     Set up logging configuration.
 
@@ -30,13 +30,13 @@ def setup_logging(log_file: str = 'slack_bot.log', level: int = logging.INFO):
 
     # Clear the log file before starting the application
     if os.path.exists(log_file):
-        with open(log_file, 'w'):
+        with open(log_file, "w"):
             pass  # Truncate the file
 
     # Set up logging
     logging.basicConfig(
         level=level,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         filename=log_file,
     )
     logger = logging.getLogger(__name__)
