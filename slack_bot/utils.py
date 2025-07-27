@@ -79,7 +79,7 @@ def convert_emoji_to_number(emoji: str) -> int:
         "seven": 7,
         "eight": 8,
         "nine": 9,
-        "keycap_ten": 10
+        "keycap_ten": 10,
     }
     return emoji_to_number.get(emoji, 0)
 
@@ -95,8 +95,16 @@ def convert_number_to_emoji(number: int) -> str:
         str: The emoji string for display.
     """
     number_to_emoji = {
-        1: "1️⃣", 2: "2️⃣", 3: "3️⃣", 4: "4️⃣", 5: "5️⃣",
-        6: "6️⃣", 7: "7️⃣", 8: "8️⃣", 9: "9️⃣", 10: "🔟"
+        1: "1️⃣",
+        2: "2️⃣",
+        3: "3️⃣",
+        4: "4️⃣",
+        5: "5️⃣",
+        6: "6️⃣",
+        7: "7️⃣",
+        8: "8️⃣",
+        9: "9️⃣",
+        10: "🔟",
     }
     return number_to_emoji.get(number, str(number))
 
@@ -145,11 +153,12 @@ def get_name_from_id(user_id: str, app) -> str:
         str: The display name of the user, or "Unknown User" if not found.
     """
     response = app.client.users_info(user=user_id)
-    return response['user'].get('profile', {}).get('display_name', "Unknown User")
+    return response["user"].get("profile", {}).get("display_name", "Unknown User")
 
 
-def format_leaderboard_table(songs_data: list,
-                             title: str = "🎵 Top Songs Leaderboard") -> str:
+def format_leaderboard_table(
+    songs_data: list, title: str = "🎵 Top Songs Leaderboard"
+) -> str:
     """
     Format the leaderboard table for top songs.
 
@@ -158,7 +167,7 @@ def format_leaderboard_table(songs_data: list,
         title (str): Title for the leaderboard message.
 
     Returns:
-        str: Formatted leaderboard message. 
+        str: Formatted leaderboard message.
     """
     message = f"*{title}*\n"
     message += "```"
@@ -169,12 +178,12 @@ def format_leaderboard_table(songs_data: list,
         # Use consistent text ranking
         if i <= 3:
             rank_medals = ["1st", "2nd", "3rd"]
-            rank_display = rank_medals[i-1]
+            rank_display = rank_medals[i - 1]
         else:
             rank_display = f"{i}th"
 
         # Rating
-        avg_rating = song['average_reaction']
+        avg_rating = song["average_reaction"]
         rating_display = f"{avg_rating:.1f}" if avg_rating > 0 else "N/A"
 
         # Truncate long titles
@@ -206,8 +215,10 @@ def format_unrated_songs_table(songs_data: list, user_name: str) -> str:
 
     for song in songs_data:
         # Truncate long titles and artist names for better formatting
-        title = song['title'][:25] + "..." if len(song['title']) > 28 else song['title']
-        artists = ", ".join(song['artists'])  # Join the list of artists into a single string
+        title = song["title"][:25] + "..." if len(song["title"]) > 28 else song["title"]
+        artists = ", ".join(
+            song["artists"]
+        )  # Join the list of artists into a single string
         artists = artists[:21] + "..." if len(artists) > 24 else artists
         link = f"<{song['message_link']}|*_Go to song_*>"
 
@@ -241,27 +252,33 @@ def handle_song_stats(song_details: dict, reaction_details: list, app) -> str:
         return "No song details found."
 
     # Preprocess song details
-    song_title: str = song_details.get('title', 'Unknown Title')
-    song_artists: str = ", ".join(song_details.get('artists', ['Unknown Artist']))
-    song_album: str = song_details.get('album', 'Unknown Album')
-    user: str = song_details.get('user', 'Unknown User')
-    user_name: str = get_name_from_id(user, app) if user != 'Unknown User' else 'Unknown User'
-    message_link: str = song_details.get('message_link', '#')
-    message_time: str = get_message_time(message_link) if message_link != '#' else 'Unknown'
-    message_link_fmt: str = f"<{message_link}|*_Go to song_*>" if message_link != '#' else '#'
+    song_title: str = song_details.get("title", "Unknown Title")
+    song_artists: str = ", ".join(song_details.get("artists", ["Unknown Artist"]))
+    song_album: str = song_details.get("album", "Unknown Album")
+    user: str = song_details.get("user", "Unknown User")
+    user_name: str = (
+        get_name_from_id(user, app) if user != "Unknown User" else "Unknown User"
+    )
+    message_link: str = song_details.get("message_link", "#")
+    message_time: str = (
+        get_message_time(message_link) if message_link != "#" else "Unknown"
+    )
+    message_link_fmt: str = (
+        f"<{message_link}|*_Go to song_*>" if message_link != "#" else "#"
+    )
 
     rating_stats: dict = get_rating_stats(reaction_details, app)
 
     data: dict = {
-        'title': song_title,
-        'artists': song_artists,
-        'album': song_album,
-        'user_name': user_name,
-        'message_time': message_time,
-        'message_link': message_link_fmt,
-        'average_rating': rating_stats['average_rating'],
-        'reaction_count': rating_stats['reaction_count'],
-        'user_ratings': rating_stats['user_ratings']
+        "title": song_title,
+        "artists": song_artists,
+        "album": song_album,
+        "user_name": user_name,
+        "message_time": message_time,
+        "message_link": message_link_fmt,
+        "average_rating": rating_stats["average_rating"],
+        "reaction_count": rating_stats["reaction_count"],
+        "user_ratings": rating_stats["user_ratings"],
     }
 
     return format_stats_message(SONG_STATS_TEMPLATE, data)
@@ -282,29 +299,35 @@ def get_rating_stats(reaction_details: list, app) -> dict:
     """
     if not reaction_details:
         return {
-            'average_rating': 'N/A',
-            'reaction_count': 0,
-            'user_ratings': 'No user ratings.'
+            "average_rating": "N/A",
+            "reaction_count": 0,
+            "user_ratings": "No user ratings.",
         }
 
-    total_rating: int = sum(reaction.get('reaction', 0) for reaction in reaction_details)
+    total_rating: int = sum(
+        reaction.get("reaction", 0) for reaction in reaction_details
+    )
     reaction_count: int = len(reaction_details)
-    average_rating: str = f"{(total_rating / reaction_count):.1f}" if reaction_count > 0 else 'N/A'
+    average_rating: str = (
+        f"{(total_rating / reaction_count):.1f}" if reaction_count > 0 else "N/A"
+    )
 
     user_ratings: list = []
     for reaction in reaction_details:
-        user_id: str = reaction.get('user')
+        user_id: str = reaction.get("user")
         if user_id:
             user_name: str = get_name_from_id(user_id, app)
-            rating_emoji: str = convert_number_to_emoji(reaction.get('reaction', 0))
+            rating_emoji: str = convert_number_to_emoji(reaction.get("reaction", 0))
             user_ratings.append(f"{user_name}: {rating_emoji}")
 
-    user_ratings_str: str = "\n".join(user_ratings) if user_ratings else "No user ratings."
+    user_ratings_str: str = (
+        "\n".join(user_ratings) if user_ratings else "No user ratings."
+    )
 
     return {
-        'average_rating': average_rating,
-        'reaction_count': reaction_count,
-        'user_ratings': user_ratings_str
+        "average_rating": average_rating,
+        "reaction_count": reaction_count,
+        "user_ratings": user_ratings_str,
     }
 
 
@@ -324,7 +347,7 @@ def get_message_time(message_link: str) -> str:
     if match:
         epoch_time = int(match.group(1)) / 1_000_000  # Convert microseconds to seconds
         # Convert epoch time to a human-readable format
-        return datetime.fromtimestamp(epoch_time).strftime('%Y-%m-%d %H:%M:%S')
+        return datetime.fromtimestamp(epoch_time).strftime("%Y-%m-%d %H:%M:%S")
     return "Unknown time"
 
 
@@ -338,9 +361,7 @@ def parse_command_arguments(command_text: str) -> dict:
     Returns:
         dict: A dictionary containing the parsed arguments and their values.
     """
-    args = {
-        "public": False  # Default to private if not specified
-    }
+    args = {"public": False}  # Default to private if not specified
     parts = command_text.split()
 
     for i, part in enumerate(parts):

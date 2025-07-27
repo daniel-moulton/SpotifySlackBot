@@ -7,7 +7,7 @@ from config.settings import get_env_variable
 spotify_client = Spotify(
     auth_manager=SpotifyClientCredentials(
         client_id=get_env_variable("SPOTIFY_CLIENT_ID"),
-        client_secret=get_env_variable("SPOTIFY_CLIENT_SECRET")
+        client_secret=get_env_variable("SPOTIFY_CLIENT_SECRET"),
     )
 )
 
@@ -22,7 +22,10 @@ def fetch_track_details(track_id: str):
         track_info = {
             "id": track["id"],
             "name": track["name"],
-            "artists": [{"id": artist["id"], "name": artist["name"]} for artist in track["artists"]],
+            "artists": [
+                {"id": artist["id"], "name": artist["name"]}
+                for artist in track["artists"]
+            ],
             "album": track["album"]["name"],
             "release_date": track["album"]["release_date"],
         }
