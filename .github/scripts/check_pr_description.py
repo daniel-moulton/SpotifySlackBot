@@ -14,7 +14,6 @@ def main():
         sys.exit(1)
     with open(sys.argv[1], "r") as f:
         body = f.read()
-    print(body)
     missing = [section for section in REQUIRED_SECTIONS if section not in body]
     if missing:
         print(f"PR description is missing required sections: {missing}")
