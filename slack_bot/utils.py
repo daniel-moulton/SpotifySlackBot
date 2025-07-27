@@ -1,6 +1,7 @@
+"""Utility functions for the Slack bot."""
+
 import re
 import logging
-from typing import Optional
 from datetime import datetime
 from slack_bot.templates import SONG_STATS_TEMPLATE
 
@@ -22,20 +23,20 @@ def extract_spotify_track_id(message_text: str) -> str:
     return match.group(1) if match else None
 
 
-def is_valid_spotify_id(id: str) -> bool:
+def is_valid_spotify_id(spotify_id: str) -> bool:
     """
     Validate if the given string is a valid Spotify track ID.
 
     Spotify uses the same format for tracks, albums, and artists, which is a 22-character alphanumeric string.
 
     Args:
-        id (str): The Spotify track ID to validate.
+        spotify_id (str): The Spotify track ID to validate.
 
     Returns:
         bool: True if the ID is valid, False otherwise.
     """
     spotify_pattern = r"^[a-zA-Z0-9]{22}$"
-    return bool(re.match(spotify_pattern, id))
+    return bool(re.match(spotify_pattern, spotify_id))
 
 
 # def extract_or_validate_track_id(input_str: str) -> Optional[str]:
@@ -123,7 +124,7 @@ def verify_user_exists(user_id: str, app) -> bool:
         response = app.client.users_info(user=user_id)
         return response.get("ok", False)
     except Exception as e:
-        logger.error(f"Error verifying user {user_id}: {e}")
+        logger.error("Error verifying user {user_id}: %s", e)
         return False
 
 
@@ -156,9 +157,7 @@ def get_name_from_id(user_id: str, app) -> str:
     return response["user"].get("profile", {}).get("display_name", "Unknown User")
 
 
-def format_leaderboard_table(
-    songs_data: list, title: str = "🎵 Top Songs Leaderboard"
-) -> str:
+def format_leaderboard_table(songs_data: list, title: str = "🎵 Top Songs Leaderboard") -> str:
     """
     Format the leaderboard table for top songs.
 
@@ -216,9 +215,7 @@ def format_unrated_songs_table(songs_data: list, user_name: str) -> str:
     for song in songs_data:
         # Truncate long titles and artist names for better formatting
         title = song["title"][:25] + "..." if len(song["title"]) > 28 else song["title"]
-        artists = ", ".join(
-            song["artists"]
-        )  # Join the list of artists into a single string
+        artists = ", ".join(song["artists"])  # Join the list of artists into a single string
         artists = artists[:21] + "..." if len(artists) > 24 else artists
         link = f"<{song['message_link']}|*_Go to song_*>"
 
@@ -256,16 +253,10 @@ def handle_song_stats(song_details: dict, reaction_details: list, app) -> str:
     song_artists: str = ", ".join(song_details.get("artists", ["Unknown Artist"]))
     song_album: str = song_details.get("album", "Unknown Album")
     user: str = song_details.get("user", "Unknown User")
-    user_name: str = (
-        get_name_from_id(user, app) if user != "Unknown User" else "Unknown User"
-    )
+    user_name: str = get_name_from_id(user, app) if user != "Unknown User" else "Unknown User"
     message_link: str = song_details.get("message_link", "#")
-    message_time: str = (
-        get_message_time(message_link) if message_link != "#" else "Unknown"
-    )
-    message_link_fmt: str = (
-        f"<{message_link}|*_Go to song_*>" if message_link != "#" else "#"
-    )
+    message_time: str = get_message_time(message_link) if message_link != "#" else "Unknown"
+    message_link_fmt: str = f"<{message_link}|*_Go to song_*>" if message_link != "#" else "#"
 
     rating_stats: dict = get_rating_stats(reaction_details, app)
 
@@ -304,13 +295,9 @@ def get_rating_stats(reaction_details: list, app) -> dict:
             "user_ratings": "No user ratings.",
         }
 
-    total_rating: int = sum(
-        reaction.get("reaction", 0) for reaction in reaction_details
-    )
+    total_rating: int = sum(reaction.get("reaction", 0) for reaction in reaction_details)
     reaction_count: int = len(reaction_details)
-    average_rating: str = (
-        f"{(total_rating / reaction_count):.1f}" if reaction_count > 0 else "N/A"
-    )
+    average_rating: str = f"{(total_rating / reaction_count):.1f}" if reaction_count > 0 else "N/A"
 
     user_ratings: list = []
     for reaction in reaction_details:
@@ -320,9 +307,7 @@ def get_rating_stats(reaction_details: list, app) -> dict:
             rating_emoji: str = convert_number_to_emoji(reaction.get("reaction", 0))
             user_ratings.append(f"{user_name}: {rating_emoji}")
 
-    user_ratings_str: str = (
-        "\n".join(user_ratings) if user_ratings else "No user ratings."
-    )
+    user_ratings_str: str = "\n".join(user_ratings) if user_ratings else "No user ratings."
 
     return {
         "average_rating": average_rating,
@@ -410,5 +395,5 @@ def format_stats_message(template: str, data: dict) -> str:
     try:
         return template.format(**data)
     except KeyError as e:
-        logger.error(f"Missing key in data for formatting: {e}")
+        logger.error("Missing key in data for formatting: %s", e)
         return "Error formatting message. Missing data."
