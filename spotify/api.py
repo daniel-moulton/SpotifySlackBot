@@ -1,3 +1,5 @@
+"""Spotify API integration for the Slack bot."""
+
 import logging
 from spotipy import Spotify
 from spotipy.oauth2 import SpotifyClientCredentials
@@ -7,7 +9,7 @@ from config.settings import get_env_variable
 spotify_client = Spotify(
     auth_manager=SpotifyClientCredentials(
         client_id=get_env_variable("SPOTIFY_CLIENT_ID"),
-        client_secret=get_env_variable("SPOTIFY_CLIENT_SECRET")
+        client_secret=get_env_variable("SPOTIFY_CLIENT_SECRET"),
     )
 )
 
@@ -17,7 +19,7 @@ def fetch_track_details(track_id: str):
     try:
         track = spotify_client.track(track_id)
         if not track:
-            logging.warning(f"No track found for ID: {track_id}")
+            logging.warning("No track found for ID: %s", track_id)
             return None
         track_info = {
             "id": track["id"],
@@ -28,5 +30,5 @@ def fetch_track_details(track_id: str):
         }
         return track_info
     except Exception as e:
-        logging.error(f"Error fetching track details for ID {track_id}: {e}")
+        logging.error("Error fetching track details for ID %s: %s", track_id, e)
         return None

@@ -1,5 +1,5 @@
-import os
-import re
+"""Main entry point for the Spotify Slack Bot application."""
+
 import logging
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
@@ -23,13 +23,10 @@ register_handlers(app, db)
 
 if __name__ == "__main__":
     try:
-        handler = SocketModeHandler(
-            app,
-            get_env_variable("SLACK_APP_TOKEN")
-        )
+        handler = SocketModeHandler(app, get_env_variable("SLACK_APP_TOKEN"))
         logger.info("Starting Slack app...")
         handler.start()
         logger.info("Slack app started successfully!")
     except Exception as e:
-        logger.error(f"Failed to start Slack app: {e}")
+        logger.error("Failed to start Slack app: %s", e)
         raise

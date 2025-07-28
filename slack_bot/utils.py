@@ -1,7 +1,9 @@
+"""Utility functions for the Slack bot."""
+
 import re
 import logging
-from typing import Optional
 from datetime import datetime
+from slack_bot.templates import SONG_STATS_TEMPLATE
 
 logger = logging.getLogger(__name__)
 
@@ -21,20 +23,20 @@ def extract_spotify_track_id(message_text: str) -> str:
     return match.group(1) if match else None
 
 
-def is_valid_spotify_id(id: str) -> bool:
+def is_valid_spotify_id(spotify_id: str) -> bool:
     """
     Validate if the given string is a valid Spotify track ID.
 
     Spotify uses the same format for tracks, albums, and artists, which is a 22-character alphanumeric string.
 
     Args:
-        id (str): The Spotify track ID to validate.
+        spotify_id (str): The Spotify track ID to validate.
 
     Returns:
         bool: True if the ID is valid, False otherwise.
     """
     spotify_pattern = r"^[a-zA-Z0-9]{22}$"
-    return bool(re.match(spotify_pattern, id))
+    return bool(re.match(spotify_pattern, spotify_id))
 
 
 # def extract_or_validate_track_id(input_str: str) -> Optional[str]:
@@ -78,7 +80,7 @@ def convert_emoji_to_number(emoji: str) -> int:
         "seven": 7,
         "eight": 8,
         "nine": 9,
-        "keycap_ten": 10
+        "keycap_ten": 10,
     }
     return emoji_to_number.get(emoji, 0)
 
@@ -94,8 +96,16 @@ def convert_number_to_emoji(number: int) -> str:
         str: The emoji string for display.
     """
     number_to_emoji = {
-        1: "1️⃣", 2: "2️⃣", 3: "3️⃣", 4: "4️⃣", 5: "5️⃣",
-        6: "6️⃣", 7: "7️⃣", 8: "8️⃣", 9: "9️⃣", 10: "🔟"
+        1: "1️⃣",
+        2: "2️⃣",
+        3: "3️⃣",
+        4: "4️⃣",
+        5: "5️⃣",
+        6: "6️⃣",
+        7: "7️⃣",
+        8: "8️⃣",
+        9: "9️⃣",
+        10: "🔟",
     }
     return number_to_emoji.get(number, str(number))
 
@@ -114,7 +124,7 @@ def verify_user_exists(user_id: str, app) -> bool:
         response = app.client.users_info(user=user_id)
         return response.get("ok", False)
     except Exception as e:
-        logger.error(f"Error verifying user {user_id}: {e}")
+        logger.error("Error verifying user {user_id}: %s", e)
         return False
 
 
@@ -144,11 +154,10 @@ def get_name_from_id(user_id: str, app) -> str:
         str: The display name of the user, or "Unknown User" if not found.
     """
     response = app.client.users_info(user=user_id)
-    return response['user'].get('profile', {}).get('display_name', "Unknown User")
+    return response["user"].get("profile", {}).get("display_name", "Unknown User")
 
 
-def format_leaderboard_table(songs_data: list,
-                             title: str = "🎵 Top Songs Leaderboard") -> str:
+def format_leaderboard_table(songs_data: list, title: str = "🎵 Top Songs Leaderboard") -> str:
     """
     Format the leaderboard table for top songs.
 
@@ -157,7 +166,7 @@ def format_leaderboard_table(songs_data: list,
         title (str): Title for the leaderboard message.
 
     Returns:
-        str: Formatted leaderboard message. 
+        str: Formatted leaderboard message.
     """
     message = f"*{title}*\n"
     message += "```"
@@ -168,12 +177,12 @@ def format_leaderboard_table(songs_data: list,
         # Use consistent text ranking
         if i <= 3:
             rank_medals = ["1st", "2nd", "3rd"]
-            rank_display = rank_medals[i-1]
+            rank_display = rank_medals[i - 1]
         else:
             rank_display = f"{i}th"
 
         # Rating
-        avg_rating = song['average_reaction']
+        avg_rating = song["average_reaction"]
         rating_display = f"{avg_rating:.1f}" if avg_rating > 0 else "N/A"
 
         # Truncate long titles
@@ -205,8 +214,8 @@ def format_unrated_songs_table(songs_data: list, user_name: str) -> str:
 
     for song in songs_data:
         # Truncate long titles and artist names for better formatting
-        title = song['title'][:25] + "..." if len(song['title']) > 28 else song['title']
-        artists = ", ".join(song['artists'])  # Join the list of artists into a single string
+        title = song["title"][:25] + "..." if len(song["title"]) > 28 else song["title"]
+        artists = ", ".join(song["artists"])  # Join the list of artists into a single string
         artists = artists[:21] + "..." if len(artists) > 24 else artists
         link = f"<{song['message_link']}|*_Go to song_*>"
 
@@ -239,32 +248,31 @@ def handle_song_stats(song_details: dict, reaction_details: list, app) -> str:
     if not song_details:
         return "No song details found."
 
-    # Format the song details
-    song_title = song_details.get('title', 'Unknown Title')
-    song_artists = ", ".join(song_details.get('artists', ['Unknown Artist']))
-    song_album = song_details.get('album', 'Unknown Album')
-    user = song_details.get('user', 'Unknown User')
-    user_name = get_name_from_id(user, app) if user != 'Unknown User' else 'Unknown User'
-    message_link = song_details.get('message_link', '#')
+    # Preprocess song details
+    song_title: str = song_details.get("title", "Unknown Title")
+    song_artists: str = ", ".join(song_details.get("artists", ["Unknown Artist"]))
+    song_album: str = song_details.get("album", "Unknown Album")
+    user: str = song_details.get("user", "Unknown User")
+    user_name: str = get_name_from_id(user, app) if user != "Unknown User" else "Unknown User"
+    message_link: str = song_details.get("message_link", "#")
+    message_time: str = get_message_time(message_link) if message_link != "#" else "Unknown"
+    message_link_fmt: str = f"<{message_link}|*_Go to song_*>" if message_link != "#" else "#"
 
-    if message_link != '#':
-        message_time = get_message_time(message_link)
-        message_link = f"<{message_link}|*_Go to song_*>"
+    rating_stats: dict = get_rating_stats(reaction_details, app)
 
-    formatted_song_details = (
-        f"*Song Details:*\n"
-        f"🎵 {song_title} by {song_artists}\n"
-        f"💿 {song_album} | 👤 {user_name} | 🕒 {message_time if message_link != '#' else 'Unknown'}\n"
-        f"🔗 {message_link}\n\n"
-    )
+    data: dict = {
+        "title": song_title,
+        "artists": song_artists,
+        "album": song_album,
+        "user_name": user_name,
+        "message_time": message_time,
+        "message_link": message_link_fmt,
+        "average_rating": rating_stats["average_rating"],
+        "reaction_count": rating_stats["reaction_count"],
+        "user_ratings": rating_stats["user_ratings"],
+    }
 
-    # Calculate average rating and reaction count
-    if not reaction_details:
-        return formatted_song_details + "No reactions found for this song."
-
-    rating_stats = get_rating_stats(reaction_details, app)
-
-    return formatted_song_details + rating_stats
+    return format_stats_message(SONG_STATS_TEMPLATE, data)
 
 
 def handle_user_stats(user_id: str, user_stats: dict, app) -> str:
@@ -288,7 +296,7 @@ def handle_user_stats(user_id: str, user_stats: dict, app) -> str:
     
 
 
-def get_rating_stats(reaction_details: list, app) -> str:
+def get_rating_stats(reaction_details: list, app) -> dict:
     """
     Calculate average rating and reaction count from reaction details.
 
@@ -299,32 +307,34 @@ def get_rating_stats(reaction_details: list, app) -> str:
         app (App): The Slack app instance to interact with Slack API.
 
     Returns:
-        str: Formatted message with average rating, reaction count, and user ratings.
+        dict: Dictionary with average_rating (str), reaction_count (int), user_ratings (str)
     """
     if not reaction_details:
-        return "No reactions found."
+        return {
+            "average_rating": "N/A",
+            "reaction_count": 0,
+            "user_ratings": "No user ratings.",
+        }
 
-    total_rating = sum(reaction.get('reaction', 0) for reaction in reaction_details)
-    reaction_count = len(reaction_details)
-    average_rating = total_rating / reaction_count if reaction_count > 0 else 0
+    total_rating: int = sum(reaction.get("reaction", 0) for reaction in reaction_details)
+    reaction_count: int = len(reaction_details)
+    average_rating: str = f"{(total_rating / reaction_count):.1f}" if reaction_count > 0 else "N/A"
 
-    user_ratings = []
+    user_ratings: list = []
     for reaction in reaction_details:
-        user_id = reaction.get('user')
+        user_id: str = reaction.get("user")
         if user_id:
-            user_name = get_name_from_id(user_id, app)
-            rating_emoji = convert_number_to_emoji(reaction.get('reaction', 0))
+            user_name: str = get_name_from_id(user_id, app)
+            rating_emoji: str = convert_number_to_emoji(reaction.get("reaction", 0))
             user_ratings.append(f"{user_name}: {rating_emoji}")
 
-    user_ratings_str = "\n".join(user_ratings) if user_ratings else "No user ratings."
-    average_rating_str = f"{average_rating:.1f}" if average_rating > 0 else "N/A"
-    reaction_count_str = str(reaction_count)
+    user_ratings_str: str = "\n".join(user_ratings) if user_ratings else "No user ratings."
 
-    return (
-        f"*Rating Stats:*\n"
-        f"⭐ Average Rating: {average_rating_str} ({reaction_count_str} reactions)\n"
-        f"👥 User Ratings:\n {user_ratings_str}\n"
-    )
+    return {
+        "average_rating": average_rating,
+        "reaction_count": reaction_count,
+        "user_ratings": user_ratings_str,
+    }
 
 
 def get_message_time(message_link: str) -> str:
@@ -343,7 +353,7 @@ def get_message_time(message_link: str) -> str:
     if match:
         epoch_time = int(match.group(1)) / 1_000_000  # Convert microseconds to seconds
         # Convert epoch time to a human-readable format
-        return datetime.fromtimestamp(epoch_time).strftime('%Y-%m-%d %H:%M:%S')
+        return datetime.fromtimestamp(epoch_time).strftime("%Y-%m-%d %H:%M:%S")
     return "Unknown time"
 
 
@@ -357,9 +367,7 @@ def parse_command_arguments(command_text: str) -> dict:
     Returns:
         dict: A dictionary containing the parsed arguments and their values.
     """
-    args = {
-        "public": False  # Default to private if not specified
-    }
+    args = {"public": False}  # Default to private if not specified
     parts = command_text.split()
 
     for i, part in enumerate(parts):
@@ -392,3 +400,21 @@ def send_response(respond, say, message: str, is_public: bool = False) -> None:
         say(message, unfurl_links=False, unfurl_media=False)
     else:
         respond(message, unfurl_links=False, unfurl_media=False)
+
+
+def format_stats_message(template: str, data: dict) -> str:
+    """
+    Format a message using a template and data.
+
+    Args:
+        template (str): The message template with placeholders.
+        data (dict): A dictionary containing the data to fill in the template.
+
+    Returns:
+        str: The formatted message.
+    """
+    try:
+        return template.format(**data)
+    except KeyError as e:
+        logger.error("Missing key in data for formatting: %s", e)
+        return "Error formatting message. Missing data."

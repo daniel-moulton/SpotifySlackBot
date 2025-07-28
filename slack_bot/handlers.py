@@ -1,9 +1,24 @@
+"""Handlers for Slack bot events and commands related to Spotify tracks."""
+
 import re
 import logging
-from slack_bolt import App
-from slack_bot.utils import extract_spotify_track_id, convert_emoji_to_number, format_leaderboard_table, format_unrated_songs_table, get_name_from_id, get_user_id, handle_song_stats, is_valid_spotify_id, parse_command_arguments, send_response, verify_user_exists
-from spotify.api import fetch_track_details
 from typing import TYPE_CHECKING
+from slack_bolt import App
+from slack_bot.utils import (
+    extract_spotify_track_id,
+    convert_emoji_to_number,
+    format_leaderboard_table,
+    format_unrated_songs_table,
+    get_name_from_id,
+    get_user_id,
+    handle_song_stats,
+    is_valid_spotify_id,
+    parse_command_arguments,
+    send_response,
+    verify_user_exists,
+)
+from spotify.api import fetch_track_details
+
 if TYPE_CHECKING:
     from database.database import SpotifyBotDatabase
 
@@ -11,85 +26,83 @@ logger = logging.getLogger(__name__)
 
 
 def register_handlers(app: App, db: "SpotifyBotDatabase"):
+    """Register event handlers for the Slack app."""
+
     @app.message(re.compile(r"https://open\.spotify\.com/track/"))
     def handle_spotify_track_message(message) -> None:
-        track_id = extract_spotify_track_id(message['text'])
+        track_id = extract_spotify_track_id(message["text"])
         if not track_id:
             logger.warning("No valid Spotify track ID found in the message.")
             app.client.chat_postEphemeral(
-                channel=message['channel'],
+                channel=message["channel"],
                 text="No valid Spotify track ID found in the message.",
-                user=message['user']
+                user=message["user"],
             )
             return
 
         # Fetch track details from Spotify API
         track_details = fetch_track_details(track_id)
         if not track_details:
-            logger.error(f"Failed to fetch details for track ID: {track_id}")
+            logger.error("Failed to fetch details for track ID: %s", track_id)
             app.client.chat_postEphemeral(
-                channel=message['channel'],
+                channel=message["channel"],
                 text="Could not fetch track details. Please try again later.",
-                user=message['user']
+                user=message["user"],
             )
             return
 
         # Generate a permalink for the current message
         try:
-            permalink_response = app.client.chat_getPermalink(
-                channel=message['channel'],
-                message_ts=message['ts']
-            )
-            message_link = permalink_response.get('permalink', None)
+            permalink_response = app.client.chat_getPermalink(channel=message["channel"], message_ts=message["ts"])
+            message_link = permalink_response.get("permalink", None)
         except Exception as e:
-            logger.error(f"Failed to generate permalink for message: {e}")
+            logger.error("Failed to generate permalink for message: %s", e)
             message_link = None
 
         # Check if the song already exists in the database
-        existing_song = db.fetch_songs(song_id=track_details['id'])
+        existing_song = db.fetch_songs(song_id=track_details["id"])
         if existing_song:
             # If the song exists, check if the original message link is missing or needs updating
-            original_message_link = existing_song.get('message_link')
+            original_message_link = existing_song.get("message_link")
             if not original_message_link and message_link:
-                logger.info(f"Updating original message link for track ID: {track_id}")
-                db.update_song_message_link(
-                    song_id=track_details['id'],
-                    message_link=message_link
-                )
+                logger.info("Updating original message link for track ID: %s", track_id)
+                db.update_song_message_link(song_id=track_details["id"], message_link=message_link)
+            link_text = ""
+            if message_link:
+                link_url = original_message_link or message_link
+                link_text = f"<{link_url}|View/rate the original message!>"
+
             app.client.chat_postEphemeral(
-                channel=message['channel'],
-                text="Track already exists in the database! 🎵\n"
-                     f"{f'<{original_message_link or message_link}|View/rate the original message!>' if message_link else ''}",
-                user=message['user']
+                channel=message["channel"],
+                text="Track already exists in the database! 🎵\n" + link_text,
+                user=message["user"],
             )
-            return
 
         # Insert the song and its artists into the database
         db.insert_song_with_artists(
-            song_id=track_details['id'],
-            title=track_details['name'],
-            album=track_details['album'],
-            artists=track_details['artists'],
-            user=message['user'],
-            message_link=message_link
+            song_id=track_details["id"],
+            title=track_details["name"],
+            album=track_details["album"],
+            artists=track_details["artists"],
+            user=message["user"],
+            message_link=message_link,
         )
         app.client.chat_postEphemeral(
-            channel=message['channel'],
+            channel=message["channel"],
             text="Track details saved successfully! 🎶\n"
-                 f"*Title:* {track_details['name']}\n"
-                 f"*Album:* {track_details['album']}\n"
-                 f"*Artists:* {', '.join(artist['name'] for artist in track_details['artists'])}\n"
-                 f"*Release Date:* {track_details['release_date']}\n",
-            user=message['user']
+            f"*Title:* {track_details['name']}\n"
+            f"*Album:* {track_details['album']}\n"
+            f"*Artists:* {', '.join(artist['name'] for artist in track_details['artists'])}\n"
+            f"*Release Date:* {track_details['release_date']}\n",
+            user=message["user"],
         )
 
     @app.event("message")
     def handle_message() -> None:
         """Ignore any messages that don't contain a Spotify track link, reduce log spam"""
-        pass
 
     @app.event("reaction_added")
-    def handle_reaction_added(event, say) -> None:
+    def handle_reaction_added(event) -> None:
         """
         Handle emoji reactions to song messages.
         """
@@ -97,7 +110,19 @@ def register_handlers(app: App, db: "SpotifyBotDatabase"):
         item = event["item"]
         user = event["user"]
 
-        if reaction not in ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "keycap_ten"]:
+        if reaction not in [
+            "zero",
+            "one",
+            "two",
+            "three",
+            "four",
+            "five",
+            "six",
+            "seven",
+            "eight",
+            "nine",
+            "keycap_ten",
+        ]:
             return
 
         if "ts" not in item or "channel" not in item:
@@ -108,12 +133,7 @@ def register_handlers(app: App, db: "SpotifyBotDatabase"):
         message_ts = item["ts"]
 
         # Fetch the message to which the reaction was added
-        response = app.client.conversations_history(
-            channel=channel,
-            latest=message_ts,
-            limit=1,
-            inclusive=True
-        )
+        response = app.client.conversations_history(channel=channel, latest=message_ts, limit=1, inclusive=True)
 
         if not response["messages"]:
             logger.warning("No messages found in the conversation history.")
@@ -130,11 +150,11 @@ def register_handlers(app: App, db: "SpotifyBotDatabase"):
         # Fetch the track details from the database
         existing_song = db.fetch_songs(song_id=track_id)
         if not existing_song:
-            logger.error(f"Track ID {track_id} not found in the database.")
+            logger.error("Track ID %s not found in the database.", track_id)
             app.client.chat_postEphemeral(
                 channel=channel,
                 text="This song is not in the database. Please add it first.",
-                user=user
+                user=user,
             )
             return
 
@@ -142,15 +162,15 @@ def register_handlers(app: App, db: "SpotifyBotDatabase"):
         # We care about the original message link as we only want to count reactions on the original message
         # and not on any subsequent messages which would cause conflicting scores.
         # If the original message link is not available, treat the current message as the original.
-        original_message_link = existing_song.get('message_link')
+        original_message_link = existing_song.get("message_link")
 
         if not original_message_link:
             # Should not happen, but just in case
-            logger.error(f"No original message link found for track ID {track_id}. This should not happen.")
+            logger.error("No original message link found for track ID %s. This should not happen.", track_id)
             app.client.chat_postEphemeral(
                 channel=channel,
                 text="No original message link found for this song. Please add the song first.",
-                user=user
+                user=user,
             )
             return
 
@@ -159,26 +179,23 @@ def register_handlers(app: App, db: "SpotifyBotDatabase"):
         # Slack format is in seconds not milliseconds, so we need to normalise it.
         normalised_message_ts = message_ts.replace(".", "")
         if normalised_message_ts != original_message_ts:
-            logger.warning(f"Reaction added to a different message than the original for track ID {track_id}.")
+            logger.warning("Reaction added to a different message than the original for track ID %s.", track_id)
             app.client.chat_postEphemeral(
                 channel=channel,
                 text="Reactions can only be added to the original song message."
                 f" Please react to the original message here: <{original_message_link}|View original message>.",
-                user=user
+                user=user,
             )
             return
 
         # Check if the user has already reacted to this song
-        existing_reaction = db.fetch_reaction(
-            song_id=track_id,
-            user=user
-        )
+        existing_reaction = db.fetch_reaction(song_id=track_id, user=user)
         if existing_reaction:
-            logger.warning(f"User <@{user}> has already reacted to this song.")
+            logger.warning("User <@%s> has already reacted to this song.", user)
             app.client.chat_postEphemeral(
                 channel=channel,
-                text=f"You have already reacted to this song. Please remove your previous reaction first.",
-                user=user
+                text="You have already reacted to this song. Please remove your previous reaction first.",
+                user=user,
             )
             return
 
@@ -186,14 +203,10 @@ def register_handlers(app: App, db: "SpotifyBotDatabase"):
         numeric_value = convert_emoji_to_number(reaction)
 
         if not numeric_value > 0:
-            logger.warning(f"Invalid reaction emoji: {reaction}")
+            logger.warning("Invalid reaction emoji: %s", reaction)
             return
 
-        db.insert_reaction(
-            song_id=track_id,
-            user=user,
-            reaction=numeric_value
-        )
+        db.insert_reaction(song_id=track_id, user=user, reaction=numeric_value)
 
     @app.event("reaction_removed")
     def handle_reaction_removed(event, say) -> None:
@@ -204,7 +217,19 @@ def register_handlers(app: App, db: "SpotifyBotDatabase"):
         item = event["item"]
         user = event["user"]
 
-        if reaction not in ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "keycap_ten"]:
+        if reaction not in [
+            "zero",
+            "one",
+            "two",
+            "three",
+            "four",
+            "five",
+            "six",
+            "seven",
+            "eight",
+            "nine",
+            "keycap_ten",
+        ]:
             return
 
         if "ts" not in item or "channel" not in item:
@@ -215,12 +240,7 @@ def register_handlers(app: App, db: "SpotifyBotDatabase"):
         message_ts = item["ts"]
 
         # Fetch the message to which the reaction was removed
-        response = app.client.conversations_history(
-            channel=channel,
-            latest=message_ts,
-            limit=1,
-            inclusive=True
-        )
+        response = app.client.conversations_history(channel=channel, latest=message_ts, limit=1, inclusive=True)
 
         if not response["messages"]:
             logger.warning("No messages found in the conversation history.")
@@ -237,14 +257,14 @@ def register_handlers(app: App, db: "SpotifyBotDatabase"):
         # Fetch the track details from the database
         existing_song = db.fetch_songs(song_id=track_id)
         if not existing_song:
-            logger.error(f"Track ID {track_id} not found in the database.")
+            logger.error("Track ID %s not found in the database.", track_id)
             say("This song is not in the database. Please add it first.")
             return
 
         # Get the original message link from the database
-        original_message_link = existing_song.get('message_link')
+        original_message_link = existing_song.get("message_link")
         if not original_message_link:
-            logger.error(f"No original message link found for track ID {track_id}. This should not happen.")
+            logger.error("No original message link found for track ID %s. This should not happen.", track_id)
             say("No original message link found for this song. Please add the song first.")
             return
 
@@ -255,39 +275,42 @@ def register_handlers(app: App, db: "SpotifyBotDatabase"):
 
         # Compare the normalized timestamps
         if message_ts != normalized_original_ts:
-            logger.warning(f"Reaction removed from a different message than the original for track ID {track_id}.")
+            logger.warning("Reaction removed from a different message than the original for track ID %s.", track_id)
             app.client.chat_postEphemeral(
                 channel=channel,
                 text="Reactions can only be removed from the original song message."
-                f" Please remove your reaction from the original message here: <{original_message_link}|View original message>.",
-                user=user
+                f" Please remove your reaction from the original message here: "
+                f"<{original_message_link}|View original message>.",
+                user=user,
             )
             return
 
         # Convert the emoji reaction to a numeric value
         numeric_value = convert_emoji_to_number(reaction)
         if not numeric_value > 0:
-            logger.warning(f"Invalid reaction emoji: {reaction}")
+            logger.warning("Invalid reaction emoji: %s", reaction)
             return
 
         # Fetch the existing reaction from the database
-        existing_reaction = db.fetch_reaction(
-            song_id=track_id,
-            user=user
-        )
+        existing_reaction = db.fetch_reaction(song_id=track_id, user=user)
         if not existing_reaction:
-            logger.warning(f"No reaction found for user <@{user}> on song ID {track_id}.")
+            logger.warning("No reaction found for user <@{user}> on song ID %s.", track_id)
             app.client.chat_postEphemeral(
                 channel=channel,
                 text="You have not reacted to this song yet.",
-                user=user
+                user=user,
             )
             return
 
         # Check if the reaction matches the one being removed
         if existing_reaction != numeric_value:
             logger.warning(
-                f"Reaction mismatch for user <@{user}> on song ID {track_id}. Expected {existing_reaction}, got {numeric_value}.")
+                "Reaction mismatch for user <@%s> on song ID %s. Expected %s, got %s.",
+                user,
+                track_id,
+                existing_reaction,
+                numeric_value,
+            )
             return
 
         # If the reaction matches, proceed to remove it
@@ -319,11 +342,11 @@ def register_handlers(app: App, db: "SpotifyBotDatabase"):
         logger.info("Leaderboard command received")
         ack()
 
-        command_text = command.get('text', '').strip()
+        command_text = command.get("text", "").strip()
         args = parse_command_arguments(command_text)
 
-        is_public = args.get('public', False)
-        count = args.get('count', '10')
+        is_public = args.get("public", False)
+        count = args.get("count", "10")
 
         if not count.isdigit() or int(count) <= 0:
             respond("Invalid count specified. Please provide a positive integer.")
@@ -339,7 +362,7 @@ def register_handlers(app: App, db: "SpotifyBotDatabase"):
 
             send_response(respond, say, leaderboard_text, is_public)
         except Exception as e:
-            logger.error(f"Error fetching leaderboard: {e}")
+            logger.error("Error fetching leaderboard: %s", e)
             respond("An error occurred while fetching the leaderboard. Please try again later.")
 
     @app.command("/unrated")
@@ -355,11 +378,11 @@ def register_handlers(app: App, db: "SpotifyBotDatabase"):
         logger.info("Unrated command received")
         ack()
 
-        command_text = command.get('text', '').strip()
+        command_text = command.get("text", "").strip()
         args = parse_command_arguments(command_text)
 
-        is_public = args.get('public', False)
-        user = args.get('user', None)
+        is_public = args.get("public", False)
+        user = args.get("user", None)
 
         if user:
             # Need just the UID part of the mention
@@ -372,7 +395,7 @@ def register_handlers(app: App, db: "SpotifyBotDatabase"):
                 return
         else:
             # Default to the user who invoked the command
-            user_id = command['user_id']
+            user_id = command["user_id"]
 
         # Get the user's display name
         user_name = get_name_from_id(user_id, app)
@@ -386,12 +409,12 @@ def register_handlers(app: App, db: "SpotifyBotDatabase"):
                 send_response(respond, say, f"No unrated songs found for {user_name}.", is_public)
                 return
 
-            logger.info(f"Unrated songs for user {user_name}: {unrated_songs}")
+            logger.info("Unrated songs for user {user_name}: %s", unrated_songs)
             unrated_text = format_unrated_songs_table(unrated_songs, user_name)
 
             send_response(respond, say, unrated_text, is_public)
         except Exception as e:
-            logger.error(f"Error fetching unrated songs: {e}")
+            logger.error("Error fetching unrated songs: %s", e)
             respond("An error occurred while fetching your unrated songs. Please try again later.")
 
 
@@ -403,13 +426,13 @@ def register_handlers(app: App, db: "SpotifyBotDatabase"):
         logger.info("Stats command received")
         ack()
 
-        command_text = command.get('text', '').strip()
+        command_text = command.get("text", "").strip()
         args = parse_command_arguments(command_text)
 
-        is_public = args.get('public', False)
-        user = args.get('user', None)
-        song = args.get('song', None)
-        artist = args.get('artist', None)
+        is_public = args.get("public", False)
+        user = args.get("user", None)
+        song = args.get("song", None)
+        artist = args.get("artist", None)
 
         # Must be either song, artist, or user specified can't be more than one
         if sum([bool(user), bool(song), bool(artist)]) != 1:
@@ -442,6 +465,12 @@ def handle_stats_user(user, app, respond, say, is_public, db) -> None:
 
 
 def handle_stats_song(song, app, respond, say, is_public, db):
+    # Check if the song argument is provided
+    # TODO: Maybe needs refactoring (if we're here then we know the --song argument
+    # is provided, but `--song --public` would still be valid)
+    # If an actual song is provided, song will be a string, otherwise if it's another argument it will be True
+    # Perhaps should have a whitelist in parse_command_arguments to decipher
+    # between flags (--public) and actual arguments (--song, --user etc.)
     if song is True:
         respond("Please specify a song using the --song argument.")
         return
@@ -487,6 +516,6 @@ def handle_stats_artist(artist, app, respond, say, is_public, db):
     #     send_response(respond, say, returned_text, is_public)
 
     @app.error
-    def custom_error_handler(error, body, logger):
-        logger.exception(f"Error: {error}")
-        logger.info(f"Request body: {body}")
+    def custom_error_handler(error, body):
+        logger.exception("Error: %s", error)
+        logger.info("Request body: %s", body)
