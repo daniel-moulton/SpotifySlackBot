@@ -592,3 +592,167 @@ class SpotifyBotDatabase:
             except sqlite3.Error as e:
                 logger.error("Error fetching unrated songs: %s", e)
                 raise
+
+    def get_user_statistics(self, user_id: str) -> dict:
+        """
+        Get comprehensive statistics for a user.
+
+        Args:
+            user_id (str): The Slack user ID.
+
+        Returns:
+            dict: Dictionary containing user statistics.
+        """
+        with sqlite3.connect(self.db_path) as connection:
+            connection.row_factory = sqlite3.Row
+            cursor = connection.cursor()
+            try:
+                # Get total songs submitted by user
+                cursor.execute("SELECT COUNT(*) as count FROM songs WHERE user = ?", (user_id,))
+                songs_submitted = cursor.fetchone()["count"]
+
+                # Get total ratings given by user
+                cursor.execute("SELECT COUNT(*) as count FROM reactions WHERE user = ?", (user_id,))
+                ratings_given = cursor.fetchone()["count"]
+
+                # Get average rating given by user
+                cursor.execute("SELECT AVG(reaction) as avg_rating FROM reactions WHERE user = ?", (user_id,))
+                avg_rating_given = cursor.fetchone()["avg_rating"] or 0
+
+                # Get average rating received on user's songs
+                cursor.execute(
+                    """
+                    SELECT AVG(r.reaction) as avg_rating 
+                    FROM reactions r 
+                    JOIN songs s ON r.song_id = s.id 
+                    WHERE s.user = ?
+                """,
+                    (user_id,),
+                )
+                avg_rating_received = cursor.fetchone()["avg_rating"] or 0
+
+                # Get percentage of songs rated (excluding own songs)
+                cursor.execute(
+                    """
+                    SELECT 
+                        COUNT(DISTINCT s.id) as total_rateable_songs,
+                        COUNT(DISTINCT r.song_id) as rated_songs
+                    FROM songs s
+                    LEFT JOIN reactions r ON s.id = r.song_id AND r.user = ?
+                    WHERE s.user != ?
+                """,
+                    (user_id, user_id),
+                )
+                rating_data = cursor.fetchone()
+                total_rateable = rating_data["total_rateable_songs"]
+                rated = rating_data["rated_songs"]
+                rating_percentage = (rated / total_rateable * 100) if total_rateable > 0 else 0
+
+                return {
+                    "songs_submitted": songs_submitted,
+                    "ratings_given": ratings_given,
+                    "avg_rating_given": avg_rating_given,
+                    "avg_rating_received": avg_rating_received,
+                    "rating_percentage": rating_percentage,
+                    "total_rateable_songs": total_rateable,
+                    "songs_rated": rated,
+                }
+
+            except sqlite3.Error as e:
+                logger.error("Error fetching user statistics: %s", e)
+                raise
+
+    def get_user_top_songs(self, user_id: str, limit: int = 3) -> list:
+        """
+        Get the top-rated songs submitted by a user.
+
+        Args:
+            user_id (str): The Slack user ID.
+            limit (int): Number of top songs to return.
+
+        Returns:
+            list: List of dictionaries containing top song details.
+        """
+        with sqlite3.connect(self.db_path) as connection:
+            connection.row_factory = sqlite3.Row
+            cursor = connection.cursor()
+            try:
+                cursor.execute(
+                    """
+                    SELECT 
+                        s.id,
+                        s.title,
+                        s.album,
+                        COALESCE(AVG(r.reaction), 0) AS average_rating,
+                        COUNT(DISTINCT r.id) AS reaction_count,
+                        GROUP_CONCAT(DISTINCT a.name) AS artists
+                    FROM songs s
+                    LEFT JOIN reactions r ON s.id = r.song_id
+                    LEFT JOIN song_artists sa ON s.id = sa.song_id
+                    LEFT JOIN artists a ON sa.artist_id = a.id
+                    WHERE s.user = ?
+                    GROUP BY s.id
+                    HAVING reaction_count > 0
+                    ORDER BY average_rating DESC, reaction_count DESC
+                    LIMIT ?
+                """,
+                    (user_id, limit),
+                )
+
+                rows = cursor.fetchall()
+                return [
+                    {
+                        "title": row["title"],
+                        "artists": row["artists"].split(",") if row["artists"] else [],
+                        "average_rating": row["average_rating"],
+                        "reaction_count": row["reaction_count"],
+                    }
+                    for row in rows
+                ]
+
+            except sqlite3.Error as e:
+                logger.error("Error fetching user top songs: %s", e)
+                raise
+
+    def get_user_top_artists(self, user_id: str, limit: int = 3) -> list:
+        """
+        Get the top artists based on songs submitted by a user.
+
+        Args:
+            user_id (str): The Slack user ID.
+            limit (int): Number of top artists to return.
+
+        Returns:
+            list: List of dictionaries containing top artist details.
+        """
+        with sqlite3.connect(self.db_path) as connection:
+            connection.row_factory = sqlite3.Row
+            cursor = connection.cursor()
+            try:
+                cursor.execute(
+                    """
+                    SELECT 
+                        a.name,
+                        COUNT(DISTINCT s.id) AS song_count,
+                        COALESCE(AVG(r.reaction), 0) AS average_rating
+                    FROM artists a
+                    JOIN song_artists sa ON a.id = sa.artist_id
+                    JOIN songs s ON sa.song_id = s.id
+                    LEFT JOIN reactions r ON s.id = r.song_id
+                    WHERE s.user = ?
+                    GROUP BY a.id, a.name
+                    ORDER BY song_count DESC, average_rating DESC
+                    LIMIT ?
+                """,
+                    (user_id, limit),
+                )
+
+                rows = cursor.fetchall()
+                return [
+                    {"name": row["name"], "song_count": row["song_count"], "average_rating": row["average_rating"]}
+                    for row in rows
+                ]
+
+            except sqlite3.Error as e:
+                logger.error("Error fetching user top artists: %s", e)
+                raise
