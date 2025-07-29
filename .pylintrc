@@ -8,6 +8,7 @@ disable=W0718, # W0718: broad-exception-caught - Disabled to allow catching all 
         R0913, # R0913: too-many-arguments - Disabled to allow functions with many parameters for flexibility.
         R0914, # R0914: too-many-locals - Disabled to allow functions with more local variables for complex logic.
         R0915, # R0915: too-many-statements - Disabled to allow the main event handler to work as intended.
+        R0917, # R0917: too-many-positional-arguments - Disabled to allow functions with many positional arguments for flexibility.
         C0103, # C0103: invalid-name - Disabled to allow more flexibility in naming conventions.
 
 [FORMAT]
