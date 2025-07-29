@@ -498,11 +498,10 @@ def handle_stats_song(song, app, respond, say, is_public, db):
             respond(f"No songs found with the name '{song}'.")
             return
         if len(matches) == 1:
-            track_id = matches[0]['id']
+            track_id = matches[0]["id"]
         else:
             match_list = "\n".join(
-                f"*{match['title']}* - {', '.join(match['artists'])} [ID: `{match['id']}]`)"
-                for match in matches
+                f"*{match['title']}* - {', '.join(match['artists'])} [ID: `{match['id']}]`)" for match in matches
             )
             respond(
                 f"Multiple songs found matching '{song}'."

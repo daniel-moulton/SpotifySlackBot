@@ -620,23 +620,29 @@ class SpotifyBotDatabase:
                 avg_rating_given = cursor.fetchone()["avg_rating"] or 0
 
                 # Get average rating received on user's songs
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT AVG(r.reaction) as avg_rating 
                     FROM reactions r 
                     JOIN songs s ON r.song_id = s.id 
                     WHERE s.user = ?
-                """, (user_id,))
+                """,
+                    (user_id,),
+                )
                 avg_rating_received = cursor.fetchone()["avg_rating"] or 0
 
                 # Get percentage of songs rated (excluding own songs)
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT 
                         COUNT(DISTINCT s.id) as total_rateable_songs,
                         COUNT(DISTINCT r.song_id) as rated_songs
                     FROM songs s
                     LEFT JOIN reactions r ON s.id = r.song_id AND r.user = ?
                     WHERE s.user != ?
-                """, (user_id, user_id))
+                """,
+                    (user_id, user_id),
+                )
                 rating_data = cursor.fetchone()
                 total_rateable = rating_data["total_rateable_songs"]
                 rated = rating_data["rated_songs"]
@@ -649,7 +655,7 @@ class SpotifyBotDatabase:
                     "avg_rating_received": avg_rating_received,
                     "rating_percentage": rating_percentage,
                     "total_rateable_songs": total_rateable,
-                    "songs_rated": rated
+                    "songs_rated": rated,
                 }
 
             except sqlite3.Error as e:
@@ -671,7 +677,8 @@ class SpotifyBotDatabase:
             connection.row_factory = sqlite3.Row
             cursor = connection.cursor()
             try:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT 
                         s.id,
                         s.title,
@@ -688,7 +695,9 @@ class SpotifyBotDatabase:
                     HAVING reaction_count > 0
                     ORDER BY average_rating DESC, reaction_count DESC
                     LIMIT ?
-                """, (user_id, limit))
+                """,
+                    (user_id, limit),
+                )
 
                 rows = cursor.fetchall()
                 return [
@@ -696,7 +705,7 @@ class SpotifyBotDatabase:
                         "title": row["title"],
                         "artists": row["artists"].split(",") if row["artists"] else [],
                         "average_rating": row["average_rating"],
-                        "reaction_count": row["reaction_count"]
+                        "reaction_count": row["reaction_count"],
                     }
                     for row in rows
                 ]
@@ -720,7 +729,8 @@ class SpotifyBotDatabase:
             connection.row_factory = sqlite3.Row
             cursor = connection.cursor()
             try:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT 
                         a.name,
                         COUNT(DISTINCT s.id) AS song_count,
@@ -733,15 +743,13 @@ class SpotifyBotDatabase:
                     GROUP BY a.id, a.name
                     ORDER BY song_count DESC, average_rating DESC
                     LIMIT ?
-                """, (user_id, limit))
+                """,
+                    (user_id, limit),
+                )
 
                 rows = cursor.fetchall()
                 return [
-                    {
-                        "name": row["name"],
-                        "song_count": row["song_count"],
-                        "average_rating": row["average_rating"]
-                    }
+                    {"name": row["name"], "song_count": row["song_count"], "average_rating": row["average_rating"]}
                     for row in rows
                 ]
 

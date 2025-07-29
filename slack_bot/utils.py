@@ -292,7 +292,7 @@ def handle_user_stats(user_name: str, user_stats: dict, top_songs: list, top_art
     if top_songs:
         top_songs_text = "*🎵 Top Songs:*\n"
         for i, song in enumerate(top_songs, 1):
-            artists_str = ", ".join(song['artists'])
+            artists_str = ", ".join(song["artists"])
             top_songs_text += f"{i}. {song['title']} - {artists_str} ({song['average_rating']:.1f}⭐, {song['reaction_count']} ratings)\n"
     else:
         top_songs_text = "*🎵 Top Songs:*\nNo rated songs yet"
@@ -301,20 +301,22 @@ def handle_user_stats(user_name: str, user_stats: dict, top_songs: list, top_art
     if top_artists:
         top_artists_text = "*🎤 Top Artists:*\n"
         for i, artist in enumerate(top_artists, 1):
-            top_artists_text += f"{i}. {artist['name']} ({artist['song_count']} songs, {artist['average_rating']:.1f}⭐ avg)\n"
+            top_artists_text += (
+                f"{i}. {artist['name']} ({artist['song_count']} songs, {artist['average_rating']:.1f}⭐ avg)\n"
+            )
     else:
         top_artists_text = "*🎤 Top Artists:*\nNo songs submitted yet"
 
     # Prepare data for template
     data = {
         "user_name": user_name,
-        "songs_submitted": user_stats['songs_submitted'],
-        "ratings_given": user_stats['ratings_given'],
-        "songs_rated": user_stats['songs_rated'],
-        "total_rateable_songs": user_stats['total_rateable_songs'],
-        "rating_percentage": user_stats['rating_percentage'],
-        "avg_rating_given": user_stats['avg_rating_given'],
-        "avg_rating_received": user_stats['avg_rating_received'],
+        "songs_submitted": user_stats["songs_submitted"],
+        "ratings_given": user_stats["ratings_given"],
+        "songs_rated": user_stats["songs_rated"],
+        "total_rateable_songs": user_stats["total_rateable_songs"],
+        "rating_percentage": user_stats["rating_percentage"],
+        "avg_rating_given": user_stats["avg_rating_given"],
+        "avg_rating_received": user_stats["avg_rating_received"],
         "top_songs_section": top_songs_text,
         "top_artists_section": top_artists_text,
     }
