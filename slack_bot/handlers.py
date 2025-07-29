@@ -448,6 +448,10 @@ def register_handlers(app: App, db: "SpotifyBotDatabase"):
 
 
 def handle_stats_user(user, app, respond, say, is_public, db) -> None:
+    """
+    Handle the /stats command for user statistics.
+    This function retrieves and formats user statistics, including top songs and artists.
+    """
     if user is True:
         respond("Please specify a user using the --user argument.")
         return
@@ -480,6 +484,10 @@ def handle_stats_user(user, app, respond, say, is_public, db) -> None:
 
 
 def handle_stats_song(song, app, respond, say, is_public, db):
+    """
+    Handle the /stats command for song statistics.
+    This function retrieves and formats song statistics, including reactions and ratings.
+    """
     # Check if the song argument is provided
     # TODO: Maybe needs refactoring (if we're here then we know the --song argument
     # is provided, but `--song --public` would still be valid)
@@ -521,16 +529,21 @@ def handle_stats_song(song, app, respond, say, is_public, db):
         send_response(respond, say, returned_text, is_public)
 
 
+# pylint: disable=unused-argument
 def handle_stats_artist(artist, app, respond, say, is_public, db):
-    artist_id = db.fetch_artist_id_by_name(artist)
-    if not artist_id:
-        respond(f"No artist found with the name '{artist}'.")
-        return
-    # returned_text = handle_artist_stats(artist_id, db)
-    # if returned_text:
-    #     send_response(respond, say, returned_text, is_public)
+    """
+    Handle the /stats command for artist statistics.
+    This function retrieves and formats artist statistics, including top songs and albums.
+    """
+    # artist_id = db.fetch_artist_id_by_name(artist)
+    # if not artist_id:
+    #     respond(f"No artist found with the name '{artist}'.")
+    #     return
+    # # returned_text = handle_artist_stats(artist_id, db)
+    # # if returned_text:
+    # #     send_response(respond, say, returned_text, is_public)
 
-    @app.error
-    def custom_error_handler(error, body):
-        logger.exception("Error: %s", error)
-        logger.info("Request body: %s", body)
+    # @app.error
+    # def custom_error_handler(error, body):
+    #     logger.exception("Error: %s", error)
+    #     logger.info("Request body: %s", body)

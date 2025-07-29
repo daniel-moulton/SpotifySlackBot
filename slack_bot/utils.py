@@ -293,7 +293,10 @@ def handle_user_stats(user_name: str, user_stats: dict, top_songs: list, top_art
         top_songs_text = "*🎵 Top Songs:*\n"
         for i, song in enumerate(top_songs, 1):
             artists_str = ", ".join(song["artists"])
-            top_songs_text += f"{i}. {song['title']} - {artists_str} ({song['average_rating']:.1f}⭐, {song['reaction_count']} ratings)\n"
+            top_songs_text += (
+                f"{i}. {song['title']} - {artists_str} "
+                f"({song['average_rating']:.1f}⭐, {song['reaction_count']} ratings)\n"
+            )
     else:
         top_songs_text = "*🎵 Top Songs:*\nNo rated songs yet"
 
