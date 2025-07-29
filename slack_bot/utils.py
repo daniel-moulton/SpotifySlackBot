@@ -293,7 +293,6 @@ def handle_user_stats(user_id: str, user_stats: dict, app) -> str:
     Returns:
         str: Formatted message with user statistics.
     """
-    
 
 
 def get_rating_stats(reaction_details: list, app) -> dict:

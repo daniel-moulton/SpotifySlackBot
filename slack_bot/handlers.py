@@ -451,7 +451,7 @@ def handle_stats_user(user, app, respond, say, is_public, db) -> None:
     if user is True:
         respond("Please specify a user using the --user argument.")
         return
-    
+
     user_id = get_user_id(user)
     if not user_id:
         respond("Invalid user mention format. Please use @username format.")
@@ -490,7 +490,8 @@ def handle_stats_song(song, app, respond, say, is_public, db):
                 for match in matches
             )
             respond(
-                f"Multiple songs found matching '{song}'. Please refine your query or use one of the track IDs below:\n{match_list}"
+                f"Multiple songs found matching '{song}'."
+                "Please refine your query or use one of the track IDs below:\n{match_list}"
             )
             return
     if not track_id:
