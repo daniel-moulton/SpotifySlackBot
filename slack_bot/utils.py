@@ -3,7 +3,7 @@
 import re
 import logging
 from datetime import datetime
-from slack_bot.templates import SONG_STATS_TEMPLATE
+from slack_bot.templates import SONG_STATS_TEMPLATE, USER_STATS_TEMPLATE
 
 logger = logging.getLogger(__name__)
 
@@ -275,24 +275,51 @@ def handle_song_stats(song_details: dict, reaction_details: list, app) -> str:
     return format_stats_message(SONG_STATS_TEMPLATE, data)
 
 
-def handle_user_stats(user_id: str, user_stats: dict, app) -> str:
+def handle_user_stats(user_name: str, user_stats: dict, top_songs: list, top_artists: list) -> str:
     """
     Handles /stats command to display statistics for a user.
-    
+
     Args:
-        user_id (str): The Slack user ID for which to fetch statistics.
-        user_stats (dict): Dictionary containing user statistics with keys:
-            - 'total_songs': Total number of songs added by the user.
-            - 'average_rating_received': Average rating received by the user's songs.
-            - 'average_rating_given': Average rating given by the user.
-            - 'total_reactions_given': Total number of reactions given by the user.
-            - 'total_reactions_received': Total number of reactions received by the user's songs.
-            - 'leaderboard_position': User's position in the leaderboard.
-        app (App): The Slack app instance to interact with Slack API.
-    
+        user_name (str): Display name of the user.
+        user_stats (dict): Dictionary containing user statistics.
+        top_songs (list): List of top-rated songs by the user.
+        top_artists (list): List of top artists for the user.
+
     Returns:
         str: Formatted message with user statistics.
     """
+    # Format top songs section
+    if top_songs:
+        top_songs_text = "*🎵 Top Songs:*\n"
+        for i, song in enumerate(top_songs, 1):
+            artists_str = ", ".join(song['artists'])
+            top_songs_text += f"{i}. {song['title']} - {artists_str} ({song['average_rating']:.1f}⭐, {song['reaction_count']} ratings)\n"
+    else:
+        top_songs_text = "*🎵 Top Songs:*\nNo rated songs yet"
+
+    # Format top artists section
+    if top_artists:
+        top_artists_text = "*🎤 Top Artists:*\n"
+        for i, artist in enumerate(top_artists, 1):
+            top_artists_text += f"{i}. {artist['name']} ({artist['song_count']} songs, {artist['average_rating']:.1f}⭐ avg)\n"
+    else:
+        top_artists_text = "*🎤 Top Artists:*\nNo songs submitted yet"
+
+    # Prepare data for template
+    data = {
+        "user_name": user_name,
+        "songs_submitted": user_stats['songs_submitted'],
+        "ratings_given": user_stats['ratings_given'],
+        "songs_rated": user_stats['songs_rated'],
+        "total_rateable_songs": user_stats['total_rateable_songs'],
+        "rating_percentage": user_stats['rating_percentage'],
+        "avg_rating_given": user_stats['avg_rating_given'],
+        "avg_rating_received": user_stats['avg_rating_received'],
+        "top_songs_section": top_songs_text,
+        "top_artists_section": top_artists_text,
+    }
+
+    return format_stats_message(USER_STATS_TEMPLATE, data)
 
 
 def get_rating_stats(reaction_details: list, app) -> dict:

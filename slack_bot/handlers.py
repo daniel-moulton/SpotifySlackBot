@@ -12,6 +12,7 @@ from slack_bot.utils import (
     get_name_from_id,
     get_user_id,
     handle_song_stats,
+    handle_user_stats,
     is_valid_spotify_id,
     parse_command_arguments,
     send_response,
@@ -417,7 +418,6 @@ def register_handlers(app: App, db: "SpotifyBotDatabase"):
             logger.error("Error fetching unrated songs: %s", e)
             respond("An error occurred while fetching your unrated songs. Please try again later.")
 
-
     @app.command("/stats")
     def handle_stats_command(ack, respond, command, say) -> None:
         """
@@ -459,9 +459,24 @@ def handle_stats_user(user, app, respond, say, is_public, db) -> None:
     if not verify_user_exists(user_id, app):
         respond(f"User `{user_id}` does not exist or is not accessible.")
         return
-    returned_text = handle_user_stats(user_id, app)
-    if returned_text:
-        send_response(respond, say, returned_text, is_public)
+
+    try:
+        # Get user statistics
+        user_stats = db.get_user_statistics(user_id)
+        top_songs = db.get_user_top_songs(user_id, limit=3)
+        top_artists = db.get_user_top_artists(user_id, limit=3)
+
+        # Get user name for display
+        user_name = get_name_from_id(user_id, app)
+
+        # Format the statistics using the reusable function
+        stats_text = handle_user_stats(user_name, user_stats, top_songs, top_artists)
+
+        send_response(respond, say, stats_text, is_public)
+
+    except Exception as e:
+        logger.error("Error fetching user statistics: %s", e)
+        respond("An error occurred while fetching user statistics. Please try again later.")
 
 
 def handle_stats_song(song, app, respond, say, is_public, db):
@@ -486,12 +501,12 @@ def handle_stats_song(song, app, respond, say, is_public, db):
             track_id = matches[0]['id']
         else:
             match_list = "\n".join(
-                f"*{match['title']}* (Album: {match['album']}, ID: `{match['id']}`)"
+                f"*{match['title']}* - {', '.join(match['artists'])} [ID: `{match['id']}]`)"
                 for match in matches
             )
             respond(
                 f"Multiple songs found matching '{song}'."
-                "Please refine your query or use one of the track IDs below:\n{match_list}"
+                f" Please refine your query or use one of the track IDs below:\n{match_list}"
             )
             return
     if not track_id:
