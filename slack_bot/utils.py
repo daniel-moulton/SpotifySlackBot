@@ -45,6 +45,27 @@ def is_valid_spotify_id(spotify_id: str) -> bool:
     return spotify_id.isalnum()
 
 
+# def extract_or_validate_track_id(input_str: str) -> Optional[str]:
+#     """
+#     Extract Spotify track ID from a string or valide if input is already a valid track ID.
+
+#     Args:
+#         input_str (str): The input string which may contain a Spotify track ID or a URL.
+
+#     Returns:
+#         Optional[str]: The extracted or validated Spotify track ID, or None if not found.
+#     """
+#     track_id = extract_spotify_track_id(input_str)
+
+#     if track_id:
+#         return track_id
+
+#     # If no URL found, check if the input is a valid Spotify ID
+#     if is_valid_spotify_id(input_str):
+#         return input_str
+#     return None
+
+
 def convert_emoji_to_number(emoji: str) -> int:
     """
     Convert a Slack emoji reaction to a numeric value.
