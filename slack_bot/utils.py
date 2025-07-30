@@ -35,9 +35,14 @@ def is_valid_spotify_id(spotify_id: str) -> bool:
     Returns:
         bool: True if the ID is valid, False otherwise.
     """
-    spotify_pattern = r"^[a-zA-Z0-9]{22}$"
-    return bool(re.match(spotify_pattern, spotify_id))
+    if not spotify_id or not isinstance(spotify_id, str):
+        return False
 
+    # Check if the ID is exactly 22 characters long (which is the standard for Spotify IDs)
+    if len(spotify_id) != 22:
+        return False
+
+    return spotify_id.isalnum()
 
 # def extract_or_validate_track_id(input_str: str) -> Optional[str]:
 #     """
