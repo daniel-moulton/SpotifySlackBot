@@ -123,3 +123,121 @@ def test_convert_number_to_emoji(number, expected_emoji):
     """Test converting number to emoji."""
     result = convert_number_to_emoji(number)
     assert result == expected_emoji
+
+
+@pytest.mark.parametrize(
+    """
+    mention,
+    expected_user_id,
+    """,
+    [
+        ("<@U12345|username>", "U12345"),
+        ("<@USLACKBOT|slackbot>", "USLACKBOT"),
+        ("@username", None),
+        ("<@U12345>", None),  # No pipe format
+        ("", None),
+    ],
+)
+def test_get_user_id(mention, expected_user_id):
+    """Test getting user ID from user mention string."""
+    result = get_user_id(mention)
+    assert result == expected_user_id
+
+
+@pytest.mark.parametrize(
+    "message_link, expected",
+    [
+        ("https://slack.com/archives/C123/p1634567890123456", "2021-10-18 15:38:10"),
+        ("invalid_link", "Unknown time"),
+        ("", "Unknown time"),
+    ],
+)
+def test_get_message_time(message_link, expected):
+    """Test getting message time from Slack link."""
+    result = get_message_time(message_link)
+    assert result == expected
+
+@pytest.mark.parametrize(
+    """
+    command_text,
+    expected_keys,
+    expected_values,
+    """,
+    [
+        # Test that basic commands include public key
+        ("/leaderboard", ["public"], {"public": False}),
+        ("/stats", ["public"], {"public": False}),
+        # Test specific argument parsing
+        ("/leaderboard --limit 5", ["limit", "public"], {"limit": "5", "public": False}),
+        ("/leaderboard --public", ["public"], {"public": True}),
+        ("/stats --user U12345", ["user", "public"], {"user": "U12345", "public": False}),
+        # Test multiple arguments
+        ("/leaderboard --limit 10 --public", ["limit", "public"], {"limit": "10", "public": True}),
+    ],
+)
+def test_parse_command_arguments_flexible(command_text, expected_keys, expected_values):
+    """Test parsing command arguments with flexible assertions."""
+    result = parse_command_arguments(command_text)
+
+    # Check that expected keys exist
+    for key in expected_keys:
+        assert key in result
+
+    # Check that expected values match
+    for key, value in expected_values.items():
+        assert result[key] == value
+
+    # Ensure result is a dictionary
+    assert isinstance(result, dict)
+
+
+@pytest.mark.parametrize(
+    """
+    template,
+    data,
+    expected_content,
+    """,
+    [
+        # Success; valid template and data
+        ("Hello {name}, you have {count} items", {"name": "John", "count": 5}, ["Hello John", "you have 5 items"]),
+        # Success; template with multiple placeholders
+        (
+            "*Song:* {title} by {artist}\n*Rating:* {rating}/10",
+            {"title": "Test Song", "artist": "Test Artist", "rating": 8},
+            ["Test Song", "Test Artist", "8/10"],
+        ),
+        # Success; empty template
+        ("", {}, []),
+        # Success; template with no placeholders
+        ("Static message", {"unused": "data"}, ["Static message"]),
+    ],
+)
+def test_format_stats_message_success(template, data, expected_content):
+    """Test format_stats_message with valid inputs."""
+    result = format_stats_message(template, data)
+
+    # Check that expected content appears in result
+    for content in expected_content:
+        assert str(content) in result
+
+    # Check it returns a string
+    assert isinstance(result, str)
+
+
+@pytest.mark.parametrize(
+    """
+    template,
+    data,
+    expected_error_message,
+    """,
+    [
+        # Missing key in data
+        ("Hello {name}, you have {missing_key} items", {"name": "John"}, "Error formatting message. Missing data."),
+        # Multiple missing keys
+        ("{key1} and {key2} are missing", {}, "Error formatting message. Missing data."),
+    ],
+)
+def test_format_stats_message_missing_keys(template, data, expected_error_message):
+    """Test format_stats_message with missing template keys."""
+    result = format_stats_message(template, data)
+    assert result == expected_error_message
