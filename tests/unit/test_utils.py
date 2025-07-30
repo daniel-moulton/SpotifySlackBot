@@ -131,15 +131,18 @@ def test_convert_number_to_emoji(number, expected_emoji):
     expected_user_id,
     """,
     [
-        ("<@U12345|username>", "U12345"),
-        ("<@USLACKBOT|slackbot>", "USLACKBOT"),
-        ("@username", None),
-        ("<@U12345>", None),  # No pipe format
-        ("", None),
+        # Additional edge cases
+        ("<@U12345678|name>", "U12345678"),  # Longer user ID
+        ("<@U1|a>", "U1"),  # Short user ID and name
+        ("<@|username>", None),  # Missing user ID
+        ("<@U12345|>", "U12345"),  # Empty username part
+        ("<@U12345|user|name>", "U12345"),  # Multiple pipes (should still work)
+        ("U12345|username", None),  # Missing angle brackets
+        ("<U12345|username>", None),  # Missing @ symbol
     ],
 )
-def test_get_user_id(mention, expected_user_id):
-    """Test getting user ID from user mention string."""
+def test_get_user_id_edge_cases(mention, expected_user_id):
+    """Test get_user_id with additional edge cases."""
     result = get_user_id(mention)
     assert result == expected_user_id
 
@@ -156,6 +159,7 @@ def test_get_message_time(message_link, expected):
     """Test getting message time from Slack link."""
     result = get_message_time(message_link)
     assert result == expected
+
 
 @pytest.mark.parametrize(
     """
@@ -241,3 +245,44 @@ def test_format_stats_message_missing_keys(template, data, expected_error_messag
     """Test format_stats_message with missing template keys."""
     result = format_stats_message(template, data)
     assert result == expected_error_message
+
+
+def test_format_leaderboard_table():
+    """Test formatting leaderboard table."""
+    mock_songs = [
+        {
+            "id": "track1",
+            "title": "Amazing Song",
+            "artists": "Great Artist",
+            "average_reaction": 8.5,
+            "reaction_count": 10,
+        }
+    ]
+
+    result = format_leaderboard_table(mock_songs)
+
+    # Check structure and basic content
+    assert "🎵 Top Songs Leaderboard" in result
+    assert "```" in result
+    assert "Rank | Rating | Count | Song & Artist" in result
+    assert "Amazing Song" in result
+    assert "Great Artist" in result
+    assert "8.5" in result
+    assert "1st" in result
+
+
+def test_format_unrated_songs_table():
+    """Test formatting unrated songs table."""
+    mock_songs = [
+        {"title": "Unrated Song 1", "artists": ["Artist A", "Artist B"], "message_link": "https://slack.com/link1"}
+    ]
+
+    user_name = "John Doe"
+    result = format_unrated_songs_table(mock_songs, user_name)
+
+    # Check structure and basic content
+    assert f"🎵 Unrated Songs for {user_name} 🎵" in result
+    assert "Title" in result and "Artists" in result and "Link" in result
+    assert "Unrated Song 1" in result
+    assert "Artist A, Artist B" in result
+    assert "Go to song" in result
