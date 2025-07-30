@@ -6,6 +6,7 @@ on:
 
 jobs:
   lint-format:
+    name: Lint and Format
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,6 +18,7 @@ jobs:
       - run: pylint slack_bot/ --rcfile=.pylintrc
 
   pr-description-check:
+    name: Check PR Description
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,6 +30,7 @@ jobs:
           python .github/scripts/check_pr_description.py pr_body.txt
 
   test:
+    name: Run Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
