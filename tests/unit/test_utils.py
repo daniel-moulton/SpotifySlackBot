@@ -17,7 +17,7 @@ from slack_bot.utils import (
     get_message_time,
     parse_command_arguments,
     send_response,
-    format_stats_message,
+    format_stats_message
 )
 
 
