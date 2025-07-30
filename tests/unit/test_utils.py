@@ -1,6 +1,7 @@
 """Unit tests for utility functions."""
 
 import pytest
+from unittest.mock import patch
 from slack_bot.utils import (
     extract_spotify_track_id,
     is_valid_spotify_id,
@@ -157,8 +158,12 @@ def test_get_user_id_edge_cases(mention, expected_user_id):
 )
 def test_get_message_time(message_link, expected):
     """Test getting message time from Slack link."""
-    result = get_message_time(message_link)
-    assert result == expected
+    with patch("slack_bot.utils.datetime") as mock_datetime:
+        mock_datetime = mock_datetime.fromtimestamp.return_value
+        mock_datetime.strftime.return_value = expected
+
+        result = get_message_time(message_link)
+        assert result == expected
 
 
 @pytest.mark.parametrize(
