@@ -30,7 +30,8 @@ from slack_bot.utils import extract_spotify_track_id, is_valid_spotify_id
             "This is not a Spotify link",
             None,
         ),
-    ])
+    ],
+)
 def test_extract_spotify_track_id(message, expected_result):
     """Test extracting Spotify track ID from a message."""
     result = extract_spotify_track_id(message)
@@ -53,7 +54,8 @@ def test_extract_spotify_track_id(message, expected_result):
         (1234567890123456789012, False),
         # Failure; None
         (None, False),
-    ])
+    ],
+)
 def test_is_valid_spotify_id(spotify_id, expected_result):
     """Test validating Spotify track ID."""
     result = is_valid_spotify_id(spotify_id)

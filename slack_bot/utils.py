@@ -44,6 +44,7 @@ def is_valid_spotify_id(spotify_id: str) -> bool:
 
     return spotify_id.isalnum()
 
+
 # def extract_or_validate_track_id(input_str: str) -> Optional[str]:
 #     """
 #     Extract Spotify track ID from a string or valide if input is already a valid track ID.
